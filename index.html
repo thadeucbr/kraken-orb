@@ -22,7 +22,8 @@ window.nzxt=window.nzxt||{};
 window.nzxt.v1=window.nzxt.v1||{};
 window.nzxt.v1.onMonitoringDataUpdate=function(data){
   const cpu=data&&data.cpus&&data.cpus[0]||{};
-  const gpu=selectGpu(data&&data.gpus);
+  const gpuList=data&&Array.isArray(data.gpus)?data.gpus:[];
+  const gpu=selectGpu(gpuList);
   const kraken=data&&data.kraken||{};
   metrics={
     cpuLoad:normalizeLoad(cpu.load),
@@ -33,7 +34,11 @@ window.nzxt.v1.onMonitoringDataUpdate=function(data){
   };
   camConnected=true;
   const debug=document.getElementById('debug');
-  if (new URLSearchParams(location.search).has('debug')) debug.textContent='KRAKEN ORB // CAM LIVE // CPU '+Math.round(metrics.cpuLoad)+'% // GPU '+Math.round(metrics.gpuLoad)+'%';
+  if (new URLSearchParams(location.search).has('debug')) {
+    debug.style.display='block';
+    const gpuInfo=gpuList.map((g,i)=>'G'+(i+1)+' '+String(g&&g.name||'?').slice(0,24)+' raw='+g.load).join(' | ');
+    debug.textContent=gpuInfo+' => SELECTED '+String(gpu.name||'?').slice(0,24)+' load='+g.load;
+  }
 };
 function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
 addEventListener('resize',resize);resize();
