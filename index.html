@@ -22,7 +22,7 @@ window.nzxt.v1=window.nzxt.v1||{};
 window.nzxt.v1.onMonitoringDataUpdate=function(data){
   const cpu=data&&data.cpus&&data.cpus[0]||{};
   const gpuList=data&&Array.isArray(data.gpus)?data.gpus:[];
-  const gpu=gpuList.reduce((best,current)=>!best||Number(current&&current.load)>Number(best.load)?current:best,null)||{};
+  const gpu=gpuList[1]||gpuList[0]||{};
   const kraken=data&&data.kraken||{};
   metrics={
     cpuLoad:normalizeLoad(cpu.load),
