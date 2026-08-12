@@ -1,0 +1,9 @@
+# Runtime/debug artifacts
+*.log
+*.png
+orb-check.js
+
+# Local editor/OS files
+.vscode/
+.DS_Store
+Thumbs.db
