@@ -16,24 +16,14 @@ window.nzxt=window.nzxt||{};window.nzxt.v1=window.nzxt.v1||{};window.nzxt.v1.onM
 function draw(){t+=.016;const cx=w/2,cy=h/2,s=Math.min(w,h),base=s*1.02;const cpu=metrics.cpuLoad,gpu=metrics.gpuLoad,load=Math.max(cpu,gpu);const ct=metrics.cpuTemp,gt=metrics.gpuTemp,lt=metrics.liquidTemp;const hot=clamp(Math.max(ct,gt),20,110);const thermal=clamp((hot-35)/55);const liquid=clamp((lt-22)/28);const green=`hsl(${155-cpu*.65},100%,62%)`,blue=`hsl(${210+gpu*.55},100%,68%)`,orange=`hsl(${48-thermal*40},100%,62%)`,pink=`hsl(${315+thermal*28},100%,68%)`,core=`hsl(${180-liquid*165},100%,68%)`;
  const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,base);bg.addColorStop(0,'#172a30');bg.addColorStop(.5,'#071116');bg.addColorStop(1,'#010307');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
  const pulse=1+Math.sin(t*(2+liquid*2))*(.015+liquid*.025);ctx.shadowBlur=0;
- // Ambient energy field: visible motion without obscuring telemetry.
- ctx.save();ctx.translate(cx,cy);ctx.rotate(-t*.035);
- for(let i=0;i<20;i++){
-   const a=i*Math.PI*2/20+t*(i%2?.018:-.012),r=base*(.29+(i%4)*.018),dr=base*(.025+(i%3)*.012);
-   const px=Math.cos(a)*r,py=Math.sin(a)*r,sz=Math.max(1.5,base*(.006+(i%3)*.002));
-   ctx.fillStyle=i%3===0?blue:i%3===1?green:core;ctx.globalAlpha=.28+(load/100)*.45;ctx.beginPath();ctx.arc(px,py,sz,0,Math.PI*2);ctx.fill();
-   if(i%4===0){ctx.strokeStyle=ctx.fillStyle;ctx.lineWidth=Math.max(1,base*.004);ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px-Math.cos(a)*dr,py-Math.sin(a)*dr);ctx.stroke()}
- }
- ctx.restore();
- // Thin scan beam, modulated by the liquid temperature.
- const scanY=cy+Math.sin(t*(.65+liquid*.6))*base*.22;ctx.strokeStyle=core;ctx.globalAlpha=.18+.12*liquid;ctx.lineWidth=Math.max(1,base*.006);ctx.beginPath();ctx.moveTo(cx-base*.30,scanY);ctx.lineTo(cx+base*.30,scanY);ctx.stroke();ctx.globalAlpha=1;
+ // Clean reactor mode: no tiny particles on the small LCD.
  ring(cx,cy,base*.385,-Math.PI/2,Math.PI*1.5,base*.025,'#101c24');ring(cx,cy,base*.385,-Math.PI/2,-Math.PI/2+Math.PI*2*gpu/100,base*.060,blue);
  ring(cx,cy,base*.315,-Math.PI/2,Math.PI*1.5,base*.020,'#10201e');ring(cx,cy,base*.315,-Math.PI/2,-Math.PI/2+Math.PI*2*cpu/100,base*.055,green);
  ring(cx,cy,base*.245,-Math.PI/2,Math.PI*1.5,base*.014,'#241911');ring(cx,cy,base*.245,t*.3,t*.3+Math.PI*2*ct/110,base*.034,orange);
  ring(cx,cy,base*.205,-t*.25,-t*.25+Math.PI*2*gt/110,base*.030,pink);
  const coreR=base*(.17+liquid*.025)*pulse;const glow=ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*1.8);glow.addColorStop(0,'#fff');glow.addColorStop(.12,core);glow.addColorStop(.42,'#11616c');glow.addColorStop(1,'#00111600');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,coreR*1.8,0,Math.PI*2);ctx.fill();
- ctx.save();ctx.translate(cx,cy);ctx.rotate(-t*.12);for(let i=0;i<10;i++){const a=i*Math.PI*2/10;ctx.strokeStyle=i%2?green:orange;ctx.lineWidth=base*.027;ctx.globalAlpha=.95;ctx.beginPath();ctx.moveTo(coreR*.35,0);ctx.lineTo(coreR*.82,0);ctx.stroke();ctx.rotate(Math.PI*2/10)}ctx.restore();
- ctx.fillStyle='#010607';ctx.strokeStyle='#fff';ctx.lineWidth=base*.012;ctx.beginPath();ctx.ellipse(cx,cy,coreR*.25,coreR*.48,-t*.2,0,Math.PI*2);ctx.fill();ctx.stroke();
+ ring(cx,cy,coreR*.86,0,Math.PI*2,base*.018,core);
+ ctx.fillStyle='#010607';ctx.strokeStyle='#fff';ctx.lineWidth=base*.014;ctx.beginPath();ctx.arc(cx,cy,coreR*.42,0,Math.PI*2);ctx.fill();ctx.stroke();
  ctx.strokeStyle='#75a7ad';ctx.globalAlpha=.5;ctx.lineWidth=base*.006;ctx.beginPath();ctx.arc(cx,cy,base*.45,Math.PI*.1,Math.PI*.9);ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,base*.45,Math.PI*1.1,Math.PI*1.9);ctx.stroke();ctx.globalAlpha=1;
  // Mechanical calibration marks around the eye.
  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.025);ctx.strokeStyle='#8ba9ad';ctx.globalAlpha=.42;ctx.lineWidth=Math.max(1,base*.005);
