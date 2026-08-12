@@ -3,152 +3,42 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kraken Orb</title>
+<title>Kraken CAM GPU Diagnostic</title>
 <style>
-  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070b;color:#d9e6ea;font-family:Segoe UI,Arial,sans-serif}
-  canvas{display:block;width:100vw;height:100vh}
-  #debug{position:fixed;left:10px;bottom:8px;color:#71858d;font:10px monospace;opacity:.7;display:none}
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#080b10;color:#eef7f8;font-family:Segoe UI,Arial,sans-serif}
+#app{box-sizing:border-box;width:100vw;height:100vh;padding:5%;display:flex;flex-direction:column;gap:4%;}
+header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #33444b;padding-bottom:3%;}
+h1{font-size:clamp(14px,5vw,28px);margin:0;letter-spacing:.08em;color:#75e3d0}#status{font-size:clamp(9px,2.7vw,15px);color:#e3b65d;text-align:right}
+#cards{display:flex;flex-direction:column;gap:3%;overflow:hidden}.card{border:2px solid #24343c;border-radius:10px;padding:4%;background:#101820;box-shadow:0 0 18px #0008}.card.selected{border-color:#e3b65d;box-shadow:0 0 18px #e3b65d44}.name{font-size:clamp(12px,4vw,22px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.row{display:flex;justify-content:space-between;gap:8px;margin-top:5px;font-family:Consolas,monospace;font-size:clamp(10px,3vw,16px);color:#b5c9ce}.bar{height:10px;background:#1d2b32;border-radius:8px;margin-top:8px;overflow:hidden}.fill{height:100%;background:#75e3d0;border-radius:8px;width:0%;transition:width .15s linear}.selected .fill{background:#e3b65d}.hint{margin-top:auto;color:#70858b;font-family:Consolas,monospace;font-size:clamp(8px,2.2vw,12px)}
 </style>
 </head>
 <body>
-<canvas id="orb"></canvas><div id="debug">KRAKEN ORB // CAM WEB INTEGRATION SPIKE</div>
+<div id="app"><header><h1>GPU TELEMETRY DIAGNOSTIC</h1><div id="status">WAITING FOR CAM</div></header><div id="cards"><div class="card"><div class="name">No monitoring payload received</div><div class="row"><span>Open this page as a CAM card</span><span>—</span></div></div></div><div class="hint">KRAKEN ORB V2 // RAW CAM PAYLOAD // NO VISUAL EFFECTS</div></div>
 <script>
-const canvas=document.getElementById('orb'),ctx=canvas.getContext('2d');
-let w=0,h=0,dpr=1,t=0;
-let metrics={cpuLoad:42,gpuLoad:68,cpuTemp:54,gpuTemp:61,liquidTemp:29};
-let lastGpu={};
-let camConnected=false;
-const debugMode=new URLSearchParams(location.search).has('debug');
-if(debugMode){const debug=document.getElementById('debug');debug.style.display='block';debug.textContent='WAITING FOR NZXT CAM // no monitoring payload yet';}
-window.nzxt=window.nzxt||{};
-window.nzxt.v1=window.nzxt.v1||{};
-window.nzxt.v1.onMonitoringDataUpdate=function(data){
+const status=document.getElementById('status'),cards=document.getElementById('cards');
+let frames=0;
+function format(v){return v===undefined||v===null?'undefined':String(v)}
+function render(data){
+  frames++;
+  const gpus=Array.isArray(data&&data.gpus)?data.gpus:[];
   const cpu=data&&data.cpus&&data.cpus[0]||{};
-  const gpuList=data&&Array.isArray(data.gpus)?data.gpus:[];
-  const gpu=selectGpu(gpuList);
   const kraken=data&&data.kraken||{};
-  metrics={
-    cpuLoad:normalizeLoad(cpu.load),
-    gpuLoad:Number.isFinite(Number(gpu.load))?lerp(metrics.gpuLoad,normalizeLoad(gpu.load),.28):metrics.gpuLoad,
-    cpuTemp:normalizeTemp(cpu.temperature),
-    gpuTemp:Number.isFinite(Number(gpu.temperature))?normalizeTemp(gpu.temperature):metrics.gpuTemp,
-    liquidTemp:normalizeTemp(kraken.liquidTemperature)
-  };
-  camConnected=true;
-  const debug=document.getElementById('debug');
-  if (new URLSearchParams(location.search).has('debug')) {
-    debug.style.display='block';
-    const gpuInfo=gpuList.map((g,i)=>'G'+(i+1)+' '+String(g&&g.name||'?').slice(0,24)+' raw='+g.load).join(' | ');
-    debug.textContent=gpuInfo+' => SELECTED '+String(gpu.name||'?').slice(0,24)+' load='+g.load;
-  }
-};
-function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
-addEventListener('resize',resize);resize();
-function clamp(v,a=0,b=100){return Math.max(a,Math.min(b,v))}
-function lerp(a,b,n){return a+(b-a)*n}
-function normalizeLoad(value){const n=Number(value);if(!Number.isFinite(n))return 0;return clamp(n<=1.01?n*100:n)}
-function normalizeTemp(value){const n=Number(value);return Number.isFinite(n)?n:0}
-function selectGpu(gpus){
-  const list=Array.isArray(gpus)?gpus:[];
-  const dedicated=list.find(g=>{
-    const name=String(g&&g.name||'').toLowerCase();
-    return /nvidia|geforce|rtx|gtx|amd|radeon|rx|7900|xtx|arc/.test(name)&&!/intel uhd|intel iris|microsoft basic/.test(name);
+  status.textContent='CAM LIVE // FRAME '+frames+' // GPU ENTRIES '+gpus.length;
+  cards.innerHTML='';
+  gpus.forEach((gpu,i)=>{
+    const raw=Number(gpu.load), percent=Number.isFinite(raw)?(raw<=1.01?raw*100:raw):0;
+    const card=document.createElement('div');card.className='card';
+    card.innerHTML='<div class="name">GPU '+(i+1)+' // '+format(gpu.name)+'</div>'+
+      '<div class="row"><span>load raw</span><strong>'+format(gpu.load)+'</strong></div>'+ 
+      '<div class="row"><span>load interpreted</span><strong>'+percent.toFixed(2)+'%</strong></div>'+ 
+      '<div class="row"><span>temperature raw</span><strong>'+format(gpu.temperature)+' °C</strong></div>'+ 
+      '<div class="bar"><div class="fill" style="width:'+Math.max(0,Math.min(100,percent))+'%"></div></div>';
+    cards.appendChild(card);
   });
-  if(dedicated){lastGpu=dedicated;return dedicated;}
-  if(list[1]&&Number.isFinite(Number(list[1].load))){lastGpu=list[1];return list[1];}
-  if(lastGpu&&Object.keys(lastGpu).length)return lastGpu;
-  return list[0]||{};
+  const system=document.createElement('div');system.className='card';
+  system.innerHTML='<div class="name">SYSTEM / KRAKEN</div><div class="row"><span>CPU load / temp</span><strong>'+format(cpu.load)+' / '+format(cpu.temperature)+' °C</strong></div><div class="row"><span>liquid temperature</span><strong>'+format(kraken.liquidTemperature)+' °C</strong></div>';
+  cards.appendChild(system);
 }
-function color(load,temp){let x=clamp(Math.max(load,temp-25)/100);let hue=lerp(175,8,x);return `hsl(${hue},95%,${lerp(64,55,x)}%)`;}
-function ring(cx,cy,r,start,end,width,col,alpha=1){ctx.save();ctx.lineCap='round';ctx.lineWidth=width;ctx.strokeStyle=col;ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.restore()}
-function draw(){
-  t+=.016;
-  const cx=w/2,cy=h/2,base=Math.min(w,h)*1.06;
-  const cpu=clamp(metrics.cpuLoad),gpu=clamp(metrics.gpuLoad);
-  const cpuTemp=clamp(metrics.cpuTemp,20,110),gpuTemp=clamp(metrics.gpuTemp,20,110),liquid=clamp(metrics.liquidTemp,15,80);
-  const load=Math.max(cpu,gpu),hot=Math.max(cpuTemp,gpuTemp);
-  const heat=clamp((hot-35)/55),liquidHeat=clamp((liquid-22)/28);
-  const cpuColor=`hsl(${lerp(155,82,cpu/100)},92%,${lerp(62,54,cpu/100)}%)`;
-  const gpuColor=`hsl(${lerp(205,278,gpu/100)},92%,${lerp(66,58,gpu/100)}%)`;
-  const cpuTempColor=`hsl(${lerp(48,8,heat)},96%,${lerp(66,54,heat)}%)`;
-  const gpuTempColor=`hsl(${lerp(310,345,clamp((gpuTemp-35)/55))},88%,62%)`;
-  const coreColor=color(liquidHeat*100,liquid);
-  const pulse=1+Math.sin(t*(2.2+liquidHeat*2.8))*(.012+liquidHeat*.022);
-
-  const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,base);
-  bg.addColorStop(0,'#182e33'); bg.addColorStop(.28,'#09161b'); bg.addColorStop(.72,'#050b0f'); bg.addColorStop(1,'#020406');
-  ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
-
-  // Mechanical radial traces.
-  ctx.save(); ctx.translate(cx,cy); ctx.rotate(t*.08);
-  for(let i=0;i<24;i++){
-    const a=i*Math.PI*2/24, inner=base*.355, len=base*(.045+(i%4)*.014);
-    ctx.strokeStyle='#506268'; ctx.globalAlpha=i%4===0?.22:.12;
-    ctx.lineWidth=Math.max(1,base*.005); ctx.beginPath();
-    ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner);
-    ctx.lineTo(Math.cos(a)*(inner+len),Math.sin(a)*(inner+len)); ctx.stroke();
-  }
-  ctx.restore();
-
-  // Active telemetry rings. The empty tracks were removed for LCD clarity.
-  ctx.shadowBlur=Math.max(12,base*.085);ctx.shadowColor=cpuColor;
-  ring(cx,cy,base*.35,-Math.PI/2,-Math.PI/2+Math.PI*2*cpu/100,base*.050,cpuColor,1);
-  ctx.shadowBlur=Math.max(10,base*.07);ctx.shadowColor=gpuColor;
-  ring(cx,cy,base*.405,Math.PI/2,Math.PI/2+Math.PI*2*gpu/100,base*.038,gpuColor,1);
-  ctx.shadowBlur=Math.max(8,base*.055);ctx.shadowColor=cpuTempColor;
-  ring(cx,cy,base*.30,-Math.PI/2+t*.42,-Math.PI/2+t*.42+Math.PI*2*cpuTemp/110,base*.026,cpuTempColor,.98);
-  ctx.shadowColor=gpuTempColor;
-  ring(cx,cy,base*.265,Math.PI/2-t*.31,Math.PI/2-t*.31+Math.PI*2*gpuTemp/110,base*.023,gpuTempColor,.98);
-  ctx.shadowBlur=0;ctx.globalAlpha=1;
-
-  // Segmented iris: the eye opens as system load rises.
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(-t*.12);
-  const irisR=base*.225*pulse, irisInner=base*(.105+load/100*.045), gap=.045+heat*.025;
-  for(let i=0;i<12;i++){
-    const a=i*Math.PI*2/12, span=Math.PI*2/12-gap;
-    ctx.save();ctx.rotate(a);ctx.strokeStyle=i%3===0?cpuTempColor:cpuColor;ctx.globalAlpha=1;ctx.lineWidth=base*.035;
-    ctx.lineCap='butt';ctx.beginPath();ctx.moveTo(irisInner,0);ctx.lineTo(irisR,0);ctx.stroke();ctx.restore();
-    ctx.strokeStyle='#6d9da0';ctx.globalAlpha=.28;ctx.lineWidth=Math.max(1,base*.006);
-    ctx.beginPath();ctx.arc(0,0,irisR,a+gap/2,a+span);ctx.stroke();
-  }
-  ctx.restore();
-
-  // Liquid temperature controls the reactor pulse and the central pupil.
-  const coreR=base*(.20+liquidHeat*.035)*pulse;
-  const core=ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*1.7);
-  core.addColorStop(0,'#ffffff'); core.addColorStop(.06,'#ffffff'); core.addColorStop(.14,coreColor); core.addColorStop(.38,'#1b7880'); core.addColorStop(.70,'#09242b'); core.addColorStop(1,'rgba(3,8,10,0)');
-  ctx.globalAlpha=.98;ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,coreR*1.7,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
-  ctx.shadowBlur=Math.max(8,base*.06);ctx.shadowColor=coreColor;ctx.strokeStyle=coreColor;ctx.lineWidth=base*.014;
-  ctx.beginPath();ctx.arc(cx,cy,coreR*.82,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.28);ctx.strokeStyle='#eaffff';ctx.globalAlpha=.76;ctx.lineWidth=Math.max(1,base*.006);
-  for(let i=0;i<6;i++){ctx.rotate(Math.PI/3);ctx.beginPath();ctx.moveTo(coreR*.25,0);ctx.lineTo(coreR*.62,0);ctx.stroke()}
-  ctx.restore();
-  ctx.fillStyle='#010607';ctx.beginPath();ctx.ellipse(cx,cy,coreR*.24,coreR*(.48+heat*.2),-t*.18,0,Math.PI*2);ctx.fill();
-  ctx.strokeStyle='#ffffff';ctx.globalAlpha=.92;ctx.lineWidth=Math.max(1,base*.008);ctx.beginPath();ctx.ellipse(cx,cy,coreR*.24,coreR*(.48+heat*.2),-t*.18,0,Math.PI*2);ctx.stroke();ctx.globalAlpha=1;
-
-  // Eye shell and mechanical eyelids.
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(-t*.025);
-  ctx.strokeStyle='#7ca7ad';ctx.globalAlpha=.55;ctx.lineWidth=Math.max(1,base*.009);ctx.lineCap='round';
-  ctx.beginPath();ctx.arc(0,0,base*.445,Math.PI*1.08,Math.PI*1.92);ctx.stroke();
-  ctx.beginPath();ctx.arc(0,0,base*.445,Math.PI*.08,Math.PI*.92);ctx.stroke();
-  ctx.strokeStyle=cpuColor;ctx.globalAlpha=.72;ctx.lineWidth=base*.018;
-  ctx.beginPath();ctx.arc(0,0,base*.445,Math.PI*1.16,Math.PI*1.48);ctx.stroke();
-  ctx.strokeStyle=gpuColor;ctx.beginPath();ctx.arc(0,0,base*.445,Math.PI*1.52,Math.PI*1.84);ctx.stroke();
-  ctx.restore();
-
-  // Rotating inner orbit and scanner sweep.
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.6);ctx.strokeStyle='#b8d9d7';ctx.globalAlpha=.34;ctx.lineWidth=Math.max(1,base*.004);
-  ctx.setLineDash([base*.018,base*.035]);ctx.beginPath();ctx.arc(0,0,base*.235,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
-  for(let i=0;i<4;i++){const a=i*Math.PI/2;ctx.fillStyle=i%2?gpuColor:cpuColor;ctx.globalAlpha=.9;ctx.beginPath();ctx.arc(Math.cos(a)*base*.235,Math.sin(a)*base*.235,Math.max(2,base*.012),0,Math.PI*2);ctx.fill()}
-  ctx.restore();
-  const sweepY=cy+Math.sin(t*.9)*coreR*.9;ctx.strokeStyle=coreColor;ctx.globalAlpha=.24;ctx.lineWidth=Math.max(1,base*.004);ctx.beginPath();ctx.moveTo(cx-coreR*1.25,sweepY);ctx.lineTo(cx+coreR*1.25,sweepY);ctx.stroke();ctx.globalAlpha=1;
-
-  // Four small corner brackets make the display read as a HUD.
-  const m=Math.min(w,h)*.06, q=Math.min(w,h)*.14;ctx.strokeStyle='#55747b';ctx.globalAlpha=.55;ctx.lineWidth=Math.max(1,base*.006);
-  for(const [sx,sy] of [[-1,-1],[1,-1],[-1,1],[1,1]]){const x=sx<0?m:w-m,y=sy<0?m:h-m;ctx.beginPath();ctx.moveTo(x,y+sy*q);ctx.lineTo(x,y);ctx.lineTo(x+sx*q,y);ctx.stroke()}
-  ctx.globalAlpha=1;
-  requestAnimationFrame(draw)
-}
-draw();
+window.nzxt=window.nzxt||{};window.nzxt.v1=window.nzxt.v1||{};window.nzxt.v1.onMonitoringDataUpdate=render;
 </script>
 </body></html>
