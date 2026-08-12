@@ -18,6 +18,8 @@ let w=0,h=0,dpr=1,t=0;
 let metrics={cpuLoad:42,gpuLoad:68,cpuTemp:54,gpuTemp:61,liquidTemp:29};
 let lastGpu={};
 let camConnected=false;
+const debugMode=new URLSearchParams(location.search).has('debug');
+if(debugMode){const debug=document.getElementById('debug');debug.style.display='block';debug.textContent='WAITING FOR NZXT CAM // no monitoring payload yet';}
 window.nzxt=window.nzxt||{};
 window.nzxt.v1=window.nzxt.v1||{};
 window.nzxt.v1.onMonitoringDataUpdate=function(data){
