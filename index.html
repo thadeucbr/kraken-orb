@@ -1,44 +1,28 @@
 <!doctype html>
-<html lang="pt-BR">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kraken CAM GPU Diagnostic</title>
-<style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#080b10;color:#eef7f8;font-family:Segoe UI,Arial,sans-serif}
-#app{box-sizing:border-box;width:100vw;height:100vh;padding:5%;display:flex;flex-direction:column;gap:4%;}
-header{display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #33444b;padding-bottom:3%;}
-h1{font-size:clamp(14px,5vw,28px);margin:0;letter-spacing:.08em;color:#75e3d0}#status{font-size:clamp(9px,2.7vw,15px);color:#e3b65d;text-align:right}
-#cards{display:flex;flex-direction:column;gap:3%;overflow:hidden}.card{border:2px solid #24343c;border-radius:10px;padding:4%;background:#101820;box-shadow:0 0 18px #0008}.card.selected{border-color:#e3b65d;box-shadow:0 0 18px #e3b65d44}.name{font-size:clamp(12px,4vw,22px);font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.row{display:flex;justify-content:space-between;gap:8px;margin-top:5px;font-family:Consolas,monospace;font-size:clamp(10px,3vw,16px);color:#b5c9ce}.bar{height:10px;background:#1d2b32;border-radius:8px;margin-top:8px;overflow:hidden}.fill{height:100%;background:#75e3d0;border-radius:8px;width:0%;transition:width .15s linear}.selected .fill{background:#e3b65d}.hint{margin-top:auto;color:#70858b;font-family:Consolas,monospace;font-size:clamp(8px,2.2vw,12px)}
-</style>
-</head>
-<body>
-<div id="app"><header><h1>GPU TELEMETRY DIAGNOSTIC</h1><div id="status">WAITING FOR CAM</div></header><div id="cards"><div class="card"><div class="name">No monitoring payload received</div><div class="row"><span>Open this page as a CAM card</span><span>—</span></div></div></div><div class="hint">KRAKEN ORB V2 // RAW CAM PAYLOAD // NO VISUAL EFFECTS</div></div>
-<script>
-const status=document.getElementById('status'),cards=document.getElementById('cards');
-let frames=0;
-function format(v){return v===undefined||v===null?'undefined':String(v)}
-function render(data){
-  frames++;
-  const gpus=Array.isArray(data&&data.gpus)?data.gpus:[];
-  const cpu=data&&data.cpus&&data.cpus[0]||{};
-  const kraken=data&&data.kraken||{};
-  status.textContent='CAM LIVE // FRAME '+frames+' // GPU ENTRIES '+gpus.length;
-  cards.innerHTML='';
-  gpus.forEach((gpu,i)=>{
-    const raw=Number(gpu.load), percent=Number.isFinite(raw)?(raw<=1.01?raw*100:raw):0;
-    const card=document.createElement('div');card.className='card';
-    card.innerHTML='<div class="name">GPU '+(i+1)+' // '+format(gpu.name)+'</div>'+
-      '<div class="row"><span>load raw</span><strong>'+format(gpu.load)+'</strong></div>'+ 
-      '<div class="row"><span>load interpreted</span><strong>'+percent.toFixed(2)+'%</strong></div>'+ 
-      '<div class="row"><span>temperature raw</span><strong>'+format(gpu.temperature)+' °C</strong></div>'+ 
-      '<div class="bar"><div class="fill" style="width:'+Math.max(0,Math.min(100,percent))+'%"></div></div>';
-    cards.appendChild(card);
-  });
-  const system=document.createElement('div');system.className='card';
-  system.innerHTML='<div class="name">SYSTEM / KRAKEN</div><div class="row"><span>CPU load / temp</span><strong>'+format(cpu.load)+' / '+format(cpu.temperature)+' °C</strong></div><div class="row"><span>liquid temperature</span><strong>'+format(kraken.liquidTemperature)+' °C</strong></div>';
-  cards.appendChild(system);
-}
-window.nzxt=window.nzxt||{};window.nzxt.v1=window.nzxt.v1||{};window.nzxt.v1.onMonitoringDataUpdate=render;
-</script>
-</body></html>
+<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kraken Orb V2</title>
+<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020509}canvas{display:block;width:100vw;height:100vh}#debug{display:none;position:fixed;left:4px;bottom:4px;color:#fff;background:#000c;padding:3px;font:10px monospace}</style></head><body><canvas id="orb"></canvas><div id="debug"></div><script>
+const canvas=document.getElementById('orb'),ctx=canvas.getContext('2d');let w=0,h=0,dpr=1,t=0;
+let metrics={cpuLoad:0,gpuLoad:0,cpuTemp:0,gpuTemp:0,liquidTemp:0};let lastGpu={};
+const debugMode=new URLSearchParams(location.search).has('debug');if(debugMode)document.getElementById('debug').style.display='block';
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',resize);resize();
+function clamp(v,a=0,b=100){return Math.max(a,Math.min(b,v))}function normalizeLoad(v){const n=Number(v);return Number.isFinite(n)?clamp(n<=1.01?n*100:n):0}function temp(v){const n=Number(v);return Number.isFinite(n)?n:0}function smooth(a,b,k=.22){return a+(b-a)*k}
+function ring(cx,cy,r,a,b,width,color){ctx.save();ctx.lineCap='round';ctx.lineWidth=width;ctx.strokeStyle=color;ctx.shadowColor=color;ctx.shadowBlur=width*1.4;ctx.beginPath();ctx.arc(cx,cy,r,a,b);ctx.stroke();ctx.restore()}
+window.nzxt=window.nzxt||{};window.nzxt.v1=window.nzxt.v1||{};window.nzxt.v1.onMonitoringDataUpdate=function(data){
+ const cpu=data&&data.cpus&&data.cpus[0]||{};const list=data&&Array.isArray(data.gpus)?data.gpus:[];const gpu=list[1]||{};const kraken=data&&data.kraken||{};
+ if(Number.isFinite(Number(gpu.load)))lastGpu=gpu;const g=Object.keys(lastGpu).length?lastGpu:gpu;
+ metrics.cpuLoad=smooth(metrics.cpuLoad,normalizeLoad(cpu.load));metrics.gpuLoad=smooth(metrics.gpuLoad,normalizeLoad(g.load));metrics.cpuTemp=smooth(metrics.cpuTemp,temp(cpu.temperature));metrics.gpuTemp=smooth(metrics.gpuTemp,temp(g.temperature));metrics.liquidTemp=smooth(metrics.liquidTemp,temp(kraken.liquidTemperature));
+ if(debugMode)document.getElementById('debug').textContent='GPU2 raw='+g.load+' interpreted='+metrics.gpuLoad.toFixed(1)+' temp='+g.temperature;
+};
+function draw(){t+=.016;const cx=w/2,cy=h/2,s=Math.min(w,h),base=s*1.02;const cpu=metrics.cpuLoad,gpu=metrics.gpuLoad;const ct=metrics.cpuTemp,gt=metrics.gpuTemp,lt=metrics.liquidTemp;const hot=clamp(Math.max(ct,gt),20,110);const thermal=clamp((hot-35)/55);const liquid=clamp((lt-22)/28);const green=`hsl(${155-cpu*.65},100%,62%)`,blue=`hsl(${210+gpu*.55},100%,68%)`,orange=`hsl(${48-thermal*40},100%,62%)`,pink=`hsl(${315+thermal*28},100%,68%)`,core=`hsl(${180-liquid*165},100%,68%)`;
+ const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,base);bg.addColorStop(0,'#172a30');bg.addColorStop(.5,'#071116');bg.addColorStop(1,'#010307');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
+ const pulse=1+Math.sin(t*(2+liquid*2))*(.015+liquid*.025);ctx.shadowBlur=0;
+ ring(cx,cy,base*.385,-Math.PI/2,Math.PI*1.5,base*.025,'#101c24');ring(cx,cy,base*.385,-Math.PI/2,-Math.PI/2+Math.PI*2*gpu/100,base*.060,blue);
+ ring(cx,cy,base*.315,-Math.PI/2,Math.PI*1.5,base*.020,'#10201e');ring(cx,cy,base*.315,-Math.PI/2,-Math.PI/2+Math.PI*2*cpu/100,base*.055,green);
+ ring(cx,cy,base*.245,-Math.PI/2,Math.PI*1.5,base*.014,'#241911');ring(cx,cy,base*.245,t*.3,t*.3+Math.PI*2*ct/110,base*.034,orange);
+ ring(cx,cy,base*.205,-t*.25,-t*.25+Math.PI*2*gt/110,base*.030,pink);
+ const coreR=base*(.17+liquid*.025)*pulse;const glow=ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*1.8);glow.addColorStop(0,'#fff');glow.addColorStop(.12,core);glow.addColorStop(.42,'#11616c');glow.addColorStop(1,'#00111600');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,coreR*1.8,0,Math.PI*2);ctx.fill();
+ ctx.save();ctx.translate(cx,cy);ctx.rotate(-t*.12);for(let i=0;i<10;i++){const a=i*Math.PI*2/10;ctx.strokeStyle=i%2?green:orange;ctx.lineWidth=base*.027;ctx.globalAlpha=.95;ctx.beginPath();ctx.moveTo(coreR*.35,0);ctx.lineTo(coreR*.82,0);ctx.stroke();ctx.rotate(Math.PI*2/10)}ctx.restore();
+ ctx.fillStyle='#010607';ctx.strokeStyle='#fff';ctx.lineWidth=base*.012;ctx.beginPath();ctx.ellipse(cx,cy,coreR*.25,coreR*.48,-t*.2,0,Math.PI*2);ctx.fill();ctx.stroke();
+ ctx.strokeStyle='#75a7ad';ctx.globalAlpha=.5;ctx.lineWidth=base*.006;ctx.beginPath();ctx.arc(cx,cy,base*.45,Math.PI*.1,Math.PI*.9);ctx.stroke();ctx.beginPath();ctx.arc(cx,cy,base*.45,Math.PI*1.1,Math.PI*1.9);ctx.stroke();ctx.globalAlpha=1;
+ requestAnimationFrame(draw)}draw();
+</script></body></html>
