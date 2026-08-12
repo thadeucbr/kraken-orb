@@ -52,7 +52,7 @@ function selectGpu(gpus){
   const list=Array.isArray(gpus)?gpus:[];
   const dedicated=list.find(g=>{
     const name=String(g&&g.name||'').toLowerCase();
-    return /nvidia|geforce|rtx|gtx|amd|radeon|rx|arc/.test(name)&&!/intel uhd|intel iris|microsoft basic/.test(name);
+    return /nvidia|geforce|rtx|gtx|amd|radeon|rx|7900|xtx|arc/.test(name)&&!/intel uhd|intel iris|microsoft basic/.test(name);
   });
   if(dedicated){lastGpu=dedicated;return dedicated;}
   if(list[1]&&Number.isFinite(Number(list[1].load))){lastGpu=list[1];return list[1];}
@@ -83,19 +83,14 @@ function draw(){
   ctx.save(); ctx.translate(cx,cy); ctx.rotate(t*.08);
   for(let i=0;i<24;i++){
     const a=i*Math.PI*2/24, inner=base*.355, len=base*(.045+(i%4)*.014);
-    ctx.strokeStyle=i%4===0?cpuColor:'#3d6068'; ctx.globalAlpha=i%4===0?.48:.24;
+    ctx.strokeStyle='#506268'; ctx.globalAlpha=i%4===0?.22:.12;
     ctx.lineWidth=Math.max(1,base*.005); ctx.beginPath();
     ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner);
     ctx.lineTo(Math.cos(a)*(inner+len),Math.sin(a)*(inner+len)); ctx.stroke();
   }
   ctx.restore();
 
-  // Outer telemetry rings: thick high-contrast tracks and fills.
-  ctx.shadowBlur=0;ctx.globalAlpha=1;
-  ring(cx,cy,base*.35,-Math.PI/2,Math.PI*1.5,base*.050,'#193238',.42);
-  ring(cx,cy,base*.405,-Math.PI/2,Math.PI*1.5,base*.038,'#20263b',.40);
-  ring(cx,cy,base*.30,-Math.PI/2,Math.PI*1.5,base*.026,'#3b2d20',.36);
-  ring(cx,cy,base*.265,-Math.PI/2,Math.PI*1.5,base*.023,'#35233a',.34);
+  // Active telemetry rings. The empty tracks were removed for LCD clarity.
   ctx.shadowBlur=Math.max(12,base*.085);ctx.shadowColor=cpuColor;
   ring(cx,cy,base*.35,-Math.PI/2,-Math.PI/2+Math.PI*2*cpu/100,base*.050,cpuColor,1);
   ctx.shadowBlur=Math.max(10,base*.07);ctx.shadowColor=gpuColor;
@@ -142,7 +137,7 @@ function draw(){
   ctx.restore();
 
   // Rotating inner orbit and scanner sweep.
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.6);ctx.strokeStyle=coreColor;ctx.globalAlpha=.7;ctx.lineWidth=Math.max(1,base*.006);
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.6);ctx.strokeStyle='#b8d9d7';ctx.globalAlpha=.34;ctx.lineWidth=Math.max(1,base*.004);
   ctx.setLineDash([base*.018,base*.035]);ctx.beginPath();ctx.arc(0,0,base*.235,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
   for(let i=0;i<4;i++){const a=i*Math.PI/2;ctx.fillStyle=i%2?gpuColor:cpuColor;ctx.globalAlpha=.9;ctx.beginPath();ctx.arc(Math.cos(a)*base*.235,Math.sin(a)*base*.235,Math.max(2,base*.012),0,Math.PI*2);ctx.fill()}
   ctx.restore();
