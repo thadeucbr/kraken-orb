@@ -16,6 +16,7 @@
 const canvas=document.getElementById('orb'),ctx=canvas.getContext('2d');
 let w=0,h=0,dpr=1,t=0;
 let metrics={cpuLoad:42,gpuLoad:68,cpuTemp:54,gpuTemp:61,liquidTemp:29};
+let lastGpu={};
 let camConnected=false;
 window.nzxt=window.nzxt||{};
 window.nzxt.v1=window.nzxt.v1||{};
@@ -25,9 +26,9 @@ window.nzxt.v1.onMonitoringDataUpdate=function(data){
   const kraken=data&&data.kraken||{};
   metrics={
     cpuLoad:normalizeLoad(cpu.load),
-    gpuLoad:normalizeLoad(gpu.load),
+    gpuLoad:Number.isFinite(Number(gpu.load))?lerp(metrics.gpuLoad,normalizeLoad(gpu.load),.28):metrics.gpuLoad,
     cpuTemp:normalizeTemp(cpu.temperature),
-    gpuTemp:normalizeTemp(gpu.temperature),
+    gpuTemp:Number.isFinite(Number(gpu.temperature))?normalizeTemp(gpu.temperature):metrics.gpuTemp,
     liquidTemp:normalizeTemp(kraken.liquidTemperature)
   };
   camConnected=true;
@@ -46,7 +47,10 @@ function selectGpu(gpus){
     const name=String(g&&g.name||'').toLowerCase();
     return /nvidia|geforce|rtx|gtx|amd|radeon|rx|arc/.test(name)&&!/intel uhd|intel iris|microsoft basic/.test(name);
   });
-  return dedicated||list[1]||list[0]||{};
+  if(dedicated){lastGpu=dedicated;return dedicated;}
+  if(list[1]&&Number.isFinite(Number(list[1].load))){lastGpu=list[1];return list[1];}
+  if(lastGpu&&Object.keys(lastGpu).length)return lastGpu;
+  return list[0]||{};
 }
 function color(load,temp){let x=clamp(Math.max(load,temp-25)/100);let hue=lerp(175,8,x);return `hsl(${hue},95%,${lerp(64,55,x)}%)`;}
 function ring(cx,cy,r,start,end,width,col,alpha=1){ctx.save();ctx.lineCap='round';ctx.lineWidth=width;ctx.strokeStyle=col;ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.restore()}
