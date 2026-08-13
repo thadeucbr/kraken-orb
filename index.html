@@ -1,21 +1,129 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kraken 3D Reactor V6</title><style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#000}canvas{display:block;width:100vw;height:100vh}#debug{display:none;position:fixed;left:4px;bottom:4px;color:#fff;background:#000d;padding:3px;font:10px monospace}</style></head><body><canvas id="reactor"></canvas><div id="debug"></div><script src="three.min.js"></script><script>
-const canvas=document.getElementById('reactor'),debugMode=new URLSearchParams(location.search).has('debug');if(debugMode)document.getElementById('debug').style.display='block';
-let metrics={cpu:0,gpu:0,ct:0,gt:0,lt:0},lastGpu={},dirty=true;const clamp=(v,a=0,b=100)=>Math.max(a,Math.min(b,v)),load=v=>{const n=Number(v);return Number.isFinite(n)?clamp(n<=1.01?n*100:n):0},sm=(a,b,k=.2)=>a+(b-a)*k;
-window.nzxt=window.nzxt||{};window.nzxt.v1=window.nzxt.v1||{};window.nzxt.v1.onMonitoringDataUpdate=function(data){const c=data&&data.cpus&&data.cpus[0]||{},list=data&&Array.isArray(data.gpus)?data.gpus:[],g=list[1]||{},k=data&&data.kraken||{};if(Number.isFinite(Number(g.load)))lastGpu=g;const x=Object.keys(lastGpu).length?lastGpu:g;metrics.cpu=sm(metrics.cpu,load(c.load));metrics.gpu=sm(metrics.gpu,load(x.load));metrics.ct=sm(metrics.ct,Number(c.temperature)||0);metrics.gt=sm(metrics.gt,Number(x.temperature)||0);metrics.lt=sm(metrics.lt,Number(k.liquidTemperature)||0);dirty=true;if(debugMode)document.getElementById('debug').textContent='V6 3D // GPU2 '+x.load+' // '+metrics.gpu.toFixed(1)+'%'};
-const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:false});renderer.setPixelRatio(1);renderer.setClearColor(0x000000,1);renderer.outputColorSpace=THREE.SRGBColorSpace;const scene=new THREE.Scene();const camera=new THREE.OrthographicCamera(-1,1,1,-1,.1,100);camera.position.set(0,0,7);camera.lookAt(0,0,0);
-const reactor=new THREE.Group();scene.add(reactor);const ambient=new THREE.AmbientLight(0x23333a,1.2);scene.add(ambient);const key=new THREE.PointLight(0x66dfff,2.5,5);key.position.set(0,0,2);scene.add(key);
-const coreMat=new THREE.MeshStandardMaterial({color:0x0a2028,emissive:0x0b5261,emissiveIntensity:2,metalness:.35,roughness:.25});const core=new THREE.Mesh(new THREE.IcosahedronGeometry(.28,3),coreMat);reactor.add(core);
-const wireMat=new THREE.MeshBasicMaterial({color:0x9cfaff,wireframe:true,transparent:true,opacity:.7});const wire=new THREE.Mesh(new THREE.IcosahedronGeometry(.34,2),wireMat);reactor.add(wire);
-const halo=new THREE.Mesh(new THREE.SphereGeometry(.43,32,32),new THREE.MeshBasicMaterial({color:0x0d6070,transparent:true,opacity:.15,blending:THREE.AdditiveBlending,depthWrite:false}));reactor.add(halo);
-function mat(c){return new THREE.MeshBasicMaterial({color:c,transparent:true,opacity:.95,blending:THREE.AdditiveBlending,depthWrite:false})}
-const gpuGroup=new THREE.Group(),cpuGroup=new THREE.Group(),cpuTempGroup=new THREE.Group(),gpuTempGroup=new THREE.Group();reactor.add(gpuGroup,cpuGroup,cpuTempGroup,gpuTempGroup);
-let parts={};function makeArc(group,r,tube,color){const mesh=new THREE.Mesh(new THREE.TorusGeometry(r,tube,12,96,Math.PI*2*.01),mat(color));group.add(mesh);return mesh}
-parts.gpu=makeArc(gpuGroup,.73,.055,0x38bfff);parts.cpu=makeArc(cpuGroup,.58,.048,0xb8ff3d);parts.ct=makeArc(cpuTempGroup,.42,.032,0x55ff55);parts.gt=makeArc(gpuTempGroup,.33,.032,0x55ff55);
-function thermalColor(v,critical){const ratio=clamp((v-35)/(critical-35),0,1);const c=new THREE.Color();c.setHSL((125-125*ratio)/360,1,.62);return c}
-function updateArc(group,key,r,tube,value,color){while(group.children.length){const old=group.children.pop();if(old.geometry)old.geometry.dispose();if(old.material)old.material.dispose()}const length=Math.max(.015,Math.PI*2*clamp(value));const mesh=new THREE.Mesh(new THREE.TorusGeometry(r,tube,12,96,length),mat(color));group.add(mesh)}
-function update(now){const hot=Math.max(metrics.ct,metrics.gt),state=metrics.ct>=80||metrics.gt>=100?3:hot>75?2:hot>55?1:0;const coreColor=state===3?0xff2418:state===2?0xff7b18:state===1?0xffc52d:0x24d8e8;coreMat.emissive.setHex(coreColor);coreMat.emissiveIntensity=1.8+state*1.4;key.color.setHex(coreColor);key.intensity=2+state*1.5;halo.material.color.setHex(coreColor);halo.material.opacity=.12+state*.07;wireMat.color.setHex(state===3?0xffd0c0:0x9cfaff);
- if(dirty){updateArc(gpuGroup,'gpu',.73,.055,metrics.gpu/100,0x38bfff);updateArc(cpuGroup,'cpu',.58,.048,metrics.cpu/100,0xb8ff3d);updateArc(cpuTempGroup,'ct',.42,.032,(metrics.ct-35)/45,thermalColor(metrics.ct,80));updateArc(gpuTempGroup,'gt',.33,.032,(metrics.gt-35)/65,thermalColor(metrics.gt,100));dirty=false;}
- reactor.rotation.z+=.0015+(metrics.gpu/100)*.008;wire.rotation.x+=.002;wire.rotation.y+=.003;core.rotation.x+=.002;core.rotation.y-=.003;halo.scale.setScalar(1+Math.sin(now*.002)*.025+state*.02);renderer.render(scene,camera);requestAnimationFrame(update)}
-function resize(){const s=Math.min(innerWidth,innerHeight);renderer.setSize(s,s,false);canvas.style.width='100vw';canvas.style.height='100vh';camera.left=-s/s;camera.right=s/s;camera.top=1;camera.bottom=-1;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();requestAnimationFrame(update);
-</script></body></html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kraken Orb</title>
+<style>
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070b;color:#d9e6ea;font-family:Segoe UI,Arial,sans-serif}
+  canvas{display:block;width:100vw;height:100vh}
+  #debug{position:fixed;left:10px;bottom:8px;color:#71858d;font:10px monospace;opacity:.7;display:none}
+</style>
+</head>
+<body>
+<canvas id="orb"></canvas><div id="debug">KRAKEN ORB // CAM WEB INTEGRATION SPIKE</div>
+<script>
+const canvas=document.getElementById('orb'),ctx=canvas.getContext('2d');
+let w=0,h=0,dpr=1,t=0;
+let metrics={cpuLoad:42,gpuLoad:68,cpuTemp:54,gpuTemp:61,liquidTemp:29};
+let lastGpu={};
+let camConnected=false;
+const debugMode=new URLSearchParams(location.search).has('debug');
+if(debugMode){const debug=document.getElementById('debug');debug.style.display='block';debug.textContent='WAITING FOR NZXT CAM // no monitoring payload yet';}
+window.nzxt=window.nzxt||{};
+window.nzxt.v1=window.nzxt.v1||{};
+window.nzxt.v1.onMonitoringDataUpdate=function(data){
+  const cpu=data&&data.cpus&&data.cpus[0]||{};
+  const list=data&&Array.isArray(data.gpus)?data.gpus:[];
+  const gpu=list[1]||{};
+  const kraken=data&&data.kraken||{};
+  if(Number.isFinite(Number(gpu.load))) lastGpu=gpu;
+  const g=Object.keys(lastGpu).length?lastGpu:gpu;
+  metrics={
+    cpuLoad:normalizeLoad(cpu.load),
+    gpuLoad:Number.isFinite(Number(g.load))?lerp(metrics.gpuLoad,normalizeLoad(g.load),.28):metrics.gpuLoad,
+    cpuTemp:normalizeTemp(cpu.temperature),
+    gpuTemp:Number.isFinite(Number(g.temperature))?normalizeTemp(g.temperature):metrics.gpuTemp,
+    liquidTemp:Number.isFinite(Number(kraken.liquidTemperature))?normalizeTemp(kraken.liquidTemperature):metrics.liquidTemp
+  };
+  camConnected=true;
+  if (debugMode) document.getElementById('debug').textContent='GPU2 raw='+g.load+' interpreted='+metrics.gpuLoad.toFixed(1)+' temp='+g.temperature;
+};
+function resize(){dpr=1;w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',resize);resize();
+function clamp(v,a=0,b=100){return Math.max(a,Math.min(b,v))}
+function lerp(a,b,n){return a+(b-a)*n}
+function normalizeLoad(value){const n=Number(value);if(!Number.isFinite(n))return 0;return clamp(n<=1.01?n*100:n)}
+function normalizeTemp(value){const n=Number(value);return Number.isFinite(n)?n:0}
+function thermalRatio(value,normalFloor,critical){return clamp((value-normalFloor)/(critical-normalFloor),0,1)}
+function thermalStateFor(cpuTemp,gpuTemp){if(cpuTemp>=80||gpuTemp>=100)return 3;const ratio=Math.max(thermalRatio(cpuTemp,35,80),thermalRatio(gpuTemp,35,100));return ratio>.72?2:ratio>.38?1:0}
+function color(load,temp){let x=clamp(Math.max(load,temp-25)/100);let hue=lerp(175,8,x);return `hsl(${hue},95%,${lerp(64,55,x)}%)`;}
+function ring(cx,cy,r,start,end,width,color,alpha=1){ctx.save();ctx.lineCap='round';ctx.lineWidth=width;ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.restore()}
+function ringDashed(cx,cy,r,start,end,width,color,dash,alpha=1){ctx.save();ctx.lineCap='butt';ctx.lineWidth=width;ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.setLineDash(dash);ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.setLineDash([]);ctx.restore()}
+function temperatureColor(ratio){const hue=125-(clamp(ratio)*125);return `hsl(${hue} 100% 62%)`}
+let lastFrame=performance.now();
+function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));lastFrame=now;t+=dt;
+  const cx=w/2,cy=h/2,base=Math.min(w,h)*1.06;
+  const cpu=clamp(metrics.cpuLoad),gpu=clamp(metrics.gpuLoad);
+  const cpuTemp=clamp(metrics.cpuTemp,20,110),gpuTemp=clamp(metrics.gpuTemp,20,110),liquid=clamp(metrics.liquidTemp,15,80);
+  const load=Math.max(cpu,gpu),hot=Math.max(cpuTemp,gpuTemp);
+  const heat=clamp((hot-35)/55),liquidHeat=clamp((liquid-22)/28);
+  const cpuColor='#B8FF3D';
+  const gpuColor='#38BFFF';
+  const cpuTempRatio=thermalRatio(cpuTemp,35,80);
+  const gpuTempRatio=thermalRatio(gpuTemp,35,100);
+  const cpuTempColor=temperatureColor(cpuTempRatio);
+  const gpuTempColor=temperatureColor(gpuTempRatio);
+  const thermalState=thermalStateFor(cpuTemp,gpuTemp);
+  const thermalHue=[185,48,18,2][thermalState];
+  const thermalLight=[70,72,66,62][thermalState];
+  const coreColor=`hsl(${thermalHue} 100% ${thermalLight}%)`;
+  const alarm=thermalState===3?1:thermalState===2?.72:thermalState===1?.35:.12;
+  const pulse=1+Math.sin(t*(2.2+liquidHeat*2.8))*(.012+liquidHeat*.022+alarm*.018);
+
+  // Blackout background: only the central reactor emits light.
+  ctx.fillStyle='#010307';ctx.fillRect(0,0,w,h);
+  const haze=ctx.createRadialGradient(cx,cy,0,cx,cy,base*.62);
+  const hazeColor=thermalState===3?'rgba(150,12,5,.30)':thermalState===2?'rgba(120,48,6,.20)':'rgba(12,82,92,.18)';
+  haze.addColorStop(0,hazeColor);haze.addColorStop(.38,hazeColor.replace(/\.\d+\)/,'.08)'));haze.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=haze;ctx.fillRect(0,0,w,h);
+  // Neutral separators: structure only, not additional telemetry.
+  ringDashed(cx,cy,base*.378,0,Math.PI*2,Math.max(1.5,base*.007),'#88A8AD',[base*.024,base*.032],.62);
+  ringDashed(cx,cy,base*.282,0,Math.PI*2,Math.max(1.5,base*.006),'#88A8AD',[base*.018,base*.040],.52);
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.018);ctx.strokeStyle='#D5ECEC';ctx.globalAlpha=.72;ctx.lineWidth=Math.max(1.5,base*.008);
+  for(let i=0;i<16;i++){const a=i*Math.PI*2/16,r=base*.337,len=i%4===0?base*.022:base*.012;ctx.beginPath();ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r);ctx.lineTo(Math.cos(a)*(r+len),Math.sin(a)*(r+len));ctx.stroke()}
+  ctx.restore();ctx.globalAlpha=1;
+
+  // Mechanical radial traces.
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(t*.08);
+  for(let i=0;i<24;i++){
+    const a=i*Math.PI*2/24, inner=base*.355, len=base*(.045+(i%4)*.014);
+    ctx.strokeStyle='#6F9297'; ctx.globalAlpha=i%4===0?.34:.20;
+    ctx.lineWidth=Math.max(1.5,base*.006); ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner);
+    ctx.lineTo(Math.cos(a)*(inner+len),Math.sin(a)*(inner+len)); ctx.stroke();
+  }
+  ctx.restore();
+
+  // Active telemetry rings. The empty tracks were removed for LCD clarity.
+  ctx.shadowBlur=Math.max(12,base*.085);ctx.shadowColor=cpuColor;
+  ring(cx,cy,base*.35,-Math.PI/2,-Math.PI/2+Math.PI*2*cpu/100,base*.050,cpuColor,1);
+  ctx.shadowBlur=Math.max(10,base*.07);ctx.shadowColor=gpuColor;
+  ring(cx,cy,base*.405,Math.PI/2,Math.PI/2+Math.PI*2*gpu/100,base*.038,gpuColor,1);
+  ctx.shadowBlur=Math.max(8,base*.055);ctx.shadowColor=cpuTempColor;
+  ring(cx,cy,base*.30,Math.PI,Math.PI+Math.PI*2*cpuTempRatio,base*.040,cpuTempColor,1);
+  ctx.shadowColor=gpuTempColor;
+  ring(cx,cy,base*.265,0,Math.PI*2*gpuTempRatio,base*.040,gpuTempColor,1);
+  ctx.shadowBlur=0;ctx.globalAlpha=1;
+
+  // Concentric reactor core: clean, circular, readable on a dim LCD.
+  const coreR=base*(.20+liquidHeat*.035)*pulse;
+  const core=ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*1.7);
+  core.addColorStop(0,'#ffffff');core.addColorStop(.10,'#eaffff');core.addColorStop(.20,coreColor);core.addColorStop(.55,'#145966');core.addColorStop(1,'rgba(3,8,10,0)');
+  ctx.globalAlpha=.98;ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,coreR*1.7,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  ctx.shadowBlur=Math.max(8,base*.06);ctx.shadowColor=coreColor;ctx.strokeStyle=coreColor;ctx.lineWidth=base*.016;ctx.beginPath();ctx.arc(cx,cy,coreR*.84,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;
+  ctx.fillStyle='#010607';ctx.strokeStyle='#ffffff';ctx.lineWidth=base*.014;ctx.beginPath();ctx.arc(cx,cy,coreR*.40,0,Math.PI*2);ctx.fill();ctx.stroke();
+  if(thermalState===3){
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(-t*.04);ctx.globalAlpha=.96;ctx.fillStyle='#ff3326';const hazardR=coreR*.31;
+    for(let i=0;i<3;i++){const a=i*Math.PI*2/3-Math.PI/2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a-.34)*hazardR,Math.sin(a-.34)*hazardR);ctx.arc(0,0,hazardR,a-.34,a+.34);ctx.closePath();ctx.fill()}
+    ctx.fillStyle='#010607';ctx.beginPath();ctx.arc(0,0,hazardR*.25,0,Math.PI*2);ctx.fill();ctx.restore();
+  }else{
+    // Normal state: only the clean thermal core remains visible.
+  }
+
+  // Minimal concentric mode: circles and reactor only.
+  requestAnimationFrame(draw)
+}
+requestAnimationFrame(draw);
+</script>
+</body></html>
