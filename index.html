@@ -75,9 +75,9 @@ function draw(){
   bg.addColorStop(0,thermalState===3?'#3a0b0b':thermalState===2?'#32190b':'#182e33'); bg.addColorStop(.28,'#09161b'); bg.addColorStop(.72,'#050b0f'); bg.addColorStop(1,'#020406');
   ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
   // Neutral separators: structure only, not additional telemetry.
-  ringDashed(cx,cy,base*.378,0,Math.PI*2,Math.max(1,base*.004),'#52636a',[base*.018,base*.035],.34);
-  ringDashed(cx,cy,base*.282,0,Math.PI*2,Math.max(1,base*.003),'#52636a',[base*.012,base*.045],.28);
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.018);ctx.strokeStyle='#73888d';ctx.globalAlpha=.38;ctx.lineWidth=Math.max(1,base*.004);
+  ringDashed(cx,cy,base*.378,0,Math.PI*2,Math.max(1.5,base*.007),'#88A8AD',[base*.024,base*.032],.62);
+  ringDashed(cx,cy,base*.282,0,Math.PI*2,Math.max(1.5,base*.006),'#88A8AD',[base*.018,base*.040],.52);
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.018);ctx.strokeStyle='#D5ECEC';ctx.globalAlpha=.72;ctx.lineWidth=Math.max(1.5,base*.008);
   for(let i=0;i<16;i++){const a=i*Math.PI*2/16,r=base*.337,len=i%4===0?base*.022:base*.012;ctx.beginPath();ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r);ctx.lineTo(Math.cos(a)*(r+len),Math.sin(a)*(r+len));ctx.stroke()}
   ctx.restore();ctx.globalAlpha=1;
 
@@ -85,8 +85,8 @@ function draw(){
   ctx.save(); ctx.translate(cx,cy); ctx.rotate(t*.08);
   for(let i=0;i<24;i++){
     const a=i*Math.PI*2/24, inner=base*.355, len=base*(.045+(i%4)*.014);
-    ctx.strokeStyle='#506268'; ctx.globalAlpha=i%4===0?.22:.12;
-    ctx.lineWidth=Math.max(1,base*.005); ctx.beginPath();
+    ctx.strokeStyle='#6F9297'; ctx.globalAlpha=i%4===0?.34:.20;
+    ctx.lineWidth=Math.max(1.5,base*.006); ctx.beginPath();
     ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner);
     ctx.lineTo(Math.cos(a)*(inner+len),Math.sin(a)*(inner+len)); ctx.stroke();
   }
