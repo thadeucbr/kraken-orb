@@ -1,39 +1,103 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kraken Geometric Reactor V3</title>
-<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020407}canvas{display:block;width:100vw;height:100vh}#debug{display:none;position:fixed;left:4px;bottom:4px;color:#fff;background:#000d;padding:3px;font:10px monospace}</style></head><body><canvas id="reactor"></canvas><div id="debug"></div><script>
-const canvas=document.getElementById('reactor'),ctx=canvas.getContext('2d');let w=0,h=0,dpr=1,t=0;
-let metrics={cpuLoad:0,gpuLoad:0,cpuTemp:0,gpuTemp:0,liquidTemp:0};let lastGpu={};
-const debugMode=new URLSearchParams(location.search).has('debug');if(debugMode)document.getElementById('debug').style.display='block';
-function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',resize);resize();
-function clamp(v,a=0,b=100){return Math.max(a,Math.min(b,v))}function load(v){const n=Number(v);return Number.isFinite(n)?clamp(n<=1.01?n*100:n):0}function temp(v){const n=Number(v);return Number.isFinite(n)?n:0}function smooth(a,b,k=.2){return a+(b-a)*k}
-// Stable CAM contract: the second GPU entry is the RX 7900 XTX on this machine.
-window.nzxt=window.nzxt||{};window.nzxt.v1=window.nzxt.v1||{};window.nzxt.v1.onMonitoringDataUpdate=function(data){
- const cpu=data&&data.cpus&&data.cpus[0]||{};const list=data&&Array.isArray(data.gpus)?data.gpus:[];const gpu=list[1]||{};const kraken=data&&data.kraken||{};
- if(Number.isFinite(Number(gpu.load)))lastGpu=gpu;const g=Object.keys(lastGpu).length?lastGpu:gpu;
- metrics.cpuLoad=smooth(metrics.cpuLoad,load(cpu.load));metrics.gpuLoad=smooth(metrics.gpuLoad,load(g.load));metrics.cpuTemp=smooth(metrics.cpuTemp,temp(cpu.temperature));metrics.gpuTemp=smooth(metrics.gpuTemp,temp(g.temperature));metrics.liquidTemp=smooth(metrics.liquidTemp,temp(kraken.liquidTemperature));
- if(debugMode)document.getElementById('debug').textContent='GPU2 raw='+g.load+' interpreted='+metrics.gpuLoad.toFixed(1)+' temp='+g.temperature;
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kraken Orb</title>
+<style>
+  html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070b;color:#d9e6ea;font-family:Segoe UI,Arial,sans-serif}
+  canvas{display:block;width:100vw;height:100vh}
+  #debug{position:fixed;left:10px;bottom:8px;color:#71858d;font:10px monospace;opacity:.7;display:none}
+</style>
+</head>
+<body>
+<canvas id="orb"></canvas><div id="debug">KRAKEN ORB // CAM WEB INTEGRATION SPIKE</div>
+<script>
+const canvas=document.getElementById('orb'),ctx=canvas.getContext('2d');
+let w=0,h=0,dpr=1,t=0;
+let metrics={cpuLoad:42,gpuLoad:68,cpuTemp:54,gpuTemp:61,liquidTemp:29};
+let lastGpu={};
+let camConnected=false;
+const debugMode=new URLSearchParams(location.search).has('debug');
+if(debugMode){const debug=document.getElementById('debug');debug.style.display='block';debug.textContent='WAITING FOR NZXT CAM // no monitoring payload yet';}
+window.nzxt=window.nzxt||{};
+window.nzxt.v1=window.nzxt.v1||{};
+window.nzxt.v1.onMonitoringDataUpdate=function(data){
+  const cpu=data&&data.cpus&&data.cpus[0]||{};
+  const list=data&&Array.isArray(data.gpus)?data.gpus:[];
+  const gpu=list[1]||{};
+  const kraken=data&&data.kraken||{};
+  if(Number.isFinite(Number(gpu.load))) lastGpu=gpu;
+  const g=Object.keys(lastGpu).length?lastGpu:gpu;
+  metrics={
+    cpuLoad:normalizeLoad(cpu.load),
+    gpuLoad:Number.isFinite(Number(g.load))?lerp(metrics.gpuLoad,normalizeLoad(g.load),.28):metrics.gpuLoad,
+    cpuTemp:normalizeTemp(cpu.temperature),
+    gpuTemp:Number.isFinite(Number(g.temperature))?normalizeTemp(g.temperature):metrics.gpuTemp,
+    liquidTemp:Number.isFinite(Number(kraken.liquidTemperature))?normalizeTemp(kraken.liquidTemperature):metrics.liquidTemp
+  };
+  camConnected=true;
+  if (debugMode) document.getElementById('debug').textContent='GPU2 raw='+g.load+' interpreted='+metrics.gpuLoad.toFixed(1)+' temp='+g.temperature;
 };
-function arc(cx,cy,r,a,b,width,color,alpha=1,blur=0){ctx.save();ctx.lineCap='butt';ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=width;if(blur){ctx.shadowColor=color;ctx.shadowBlur=blur}ctx.beginPath();ctx.arc(cx,cy,r,a,b);ctx.stroke();ctx.restore()}
-function poly(cx,cy,r,n,rot,fill,stroke,width){ctx.save();ctx.translate(cx,cy);ctx.rotate(rot);ctx.beginPath();for(let i=0;i<n;i++){const a=i*Math.PI*2/n;const x=Math.cos(a)*r,y=Math.sin(a)*r;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.closePath();if(fill){ctx.fillStyle=fill;ctx.fill()}if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=width;ctx.stroke()}ctx.restore()}
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}
+addEventListener('resize',resize);resize();
+function clamp(v,a=0,b=100){return Math.max(a,Math.min(b,v))}
+function lerp(a,b,n){return a+(b-a)*n}
+function normalizeLoad(value){const n=Number(value);if(!Number.isFinite(n))return 0;return clamp(n<=1.01?n*100:n)}
+function normalizeTemp(value){const n=Number(value);return Number.isFinite(n)?n:0}
+function color(load,temp){let x=clamp(Math.max(load,temp-25)/100);let hue=lerp(175,8,x);return `hsl(${hue},95%,${lerp(64,55,x)}%)`;}
+function ring(cx,cy,r,start,end,width,col,alpha=1){ctx.save();ctx.lineCap='round';ctx.lineWidth=width;ctx.strokeStyle=col;ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.restore()}
 function draw(){
- t+=.016;const cx=w/2,cy=h/2,s=Math.min(w,h),base=s*1.02;const cpu=metrics.cpuLoad,gpu=metrics.gpuLoad,ct=metrics.cpuTemp,gt=metrics.gpuTemp,lt=metrics.liquidTemp;const heat=clamp((Math.max(ct,gt)-35)/55),liquid=clamp((lt-22)/28),load=clamp(Math.max(cpu,gpu)/100);
- const green=`hsl(${150-cpu*.5} 96% 60%)`,blue=`hsl(${208+gpu*.55} 98% 67%)`,orange=`hsl(${48-heat*40} 100% 63%)`,pink=`hsl(${315+heat*28} 96% 68%)`,core=`hsl(${185-heat*185} 100% 65%)`;
- const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,base);bg.addColorStop(0,heat>.55?'#28140f':'#10242a');bg.addColorStop(.42,'#071116');bg.addColorStop(1,'#010306');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
- const pulse=1+Math.sin(t*(1.6+liquid*2))*(.012+liquid*.025),rot=t*.035;
- // Four strong geometric telemetry arcs.
- arc(cx,cy,base*.405,-Math.PI/2,Math.PI*1.5,base*.018,'#111a25',.75);arc(cx,cy,base*.405,-Math.PI/2,-Math.PI/2+Math.PI*2*gpu/100,base*.064,blue,1,base*.08);
- arc(cx,cy,base*.325,-Math.PI/2,Math.PI*1.5,base*.016,'#10211c',.75);arc(cx,cy,base*.325,-Math.PI/2,-Math.PI/2+Math.PI*2*cpu/100,base*.058,green,1,base*.07);
- arc(cx,cy,base*.255,Math.PI/2,Math.PI*2.5,base*.012,'#271b13',.8);arc(cx,cy,base*.255,Math.PI/2+rot,Math.PI/2+rot+Math.PI*2*ct/110,base*.032,orange,1,base*.045);
- arc(cx,cy,base*.205,-rot,-rot+Math.PI*2*gt/110,base*.028,pink,1,base*.04);
- // Clean geometric reactor core.
- const coreR=base*(.17+load*.035+heat*.035)*pulse;
- const halo=ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*1.9);halo.addColorStop(0,'#fff');halo.addColorStop(.10,core);halo.addColorStop(.32,core);halo.addColorStop(.68,`hsla(${185-heat*185},100%,55%,.28)`);halo.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=halo;ctx.beginPath();ctx.arc(cx,cy,coreR*1.9,0,Math.PI*2);ctx.fill();
- const outerFill=heat>.6?'#31110d':'#081b20';poly(cx,cy,coreR*1.05,8,Math.PI/8,outerFill,core,base*.014);
- arc(cx,cy,coreR*.83,0,Math.PI*2,base*.018,core,1,base*.05);
- poly(cx,cy,coreR*.64,8,Math.PI/8,'#020608','#eaffff',base*.010);
- poly(cx,cy,coreR*.35,8,Math.PI/8,core,null,0);
- // Four fixed reactor alignment marks, not extra telemetry.
- ctx.save();ctx.translate(cx,cy);ctx.rotate(rot);ctx.strokeStyle='#76949a';ctx.globalAlpha=.65;ctx.lineWidth=Math.max(1,base*.006);for(let i=0;i<4;i++){const a=i*Math.PI/2;ctx.beginPath();ctx.moveTo(Math.cos(a)*coreR*1.1,Math.sin(a)*coreR*1.1);ctx.lineTo(Math.cos(a)*coreR*1.34,Math.sin(a)*coreR*1.34);ctx.stroke()}ctx.restore();ctx.globalAlpha=1;
- requestAnimationFrame(draw)
-}draw();
-</script></body></html>
+  t+=.016;
+  const cx=w/2,cy=h/2,base=Math.min(w,h)*1.06;
+  const cpu=clamp(metrics.cpuLoad),gpu=clamp(metrics.gpuLoad);
+  const cpuTemp=clamp(metrics.cpuTemp,20,110),gpuTemp=clamp(metrics.gpuTemp,20,110),liquid=clamp(metrics.liquidTemp,15,80);
+  const load=Math.max(cpu,gpu),hot=Math.max(cpuTemp,gpuTemp);
+  const heat=clamp((hot-35)/55),liquidHeat=clamp((liquid-22)/28);
+  const cpuColor=`hsl(${lerp(155,82,cpu/100)},92%,${lerp(62,54,cpu/100)}%)`;
+  const gpuColor=`hsl(${lerp(205,278,gpu/100)},92%,${lerp(66,58,gpu/100)}%)`;
+  const cpuTempColor=`hsl(${lerp(48,8,heat)},96%,${lerp(66,54,heat)}%)`;
+  const gpuTempColor=`hsl(${lerp(310,345,clamp((gpuTemp-35)/55))},88%,62%)`;
+  const coreColor=color(liquidHeat*100,liquid);
+  const pulse=1+Math.sin(t*(2.2+liquidHeat*2.8))*(.012+liquidHeat*.022);
+
+  const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,base);
+  bg.addColorStop(0,'#182e33'); bg.addColorStop(.28,'#09161b'); bg.addColorStop(.72,'#050b0f'); bg.addColorStop(1,'#020406');
+  ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+
+  // Mechanical radial traces.
+  ctx.save(); ctx.translate(cx,cy); ctx.rotate(t*.08);
+  for(let i=0;i<24;i++){
+    const a=i*Math.PI*2/24, inner=base*.355, len=base*(.045+(i%4)*.014);
+    ctx.strokeStyle='#506268'; ctx.globalAlpha=i%4===0?.22:.12;
+    ctx.lineWidth=Math.max(1,base*.005); ctx.beginPath();
+    ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner);
+    ctx.lineTo(Math.cos(a)*(inner+len),Math.sin(a)*(inner+len)); ctx.stroke();
+  }
+  ctx.restore();
+
+  // Active telemetry rings. The empty tracks were removed for LCD clarity.
+  ctx.shadowBlur=Math.max(12,base*.085);ctx.shadowColor=cpuColor;
+  ring(cx,cy,base*.35,-Math.PI/2,-Math.PI/2+Math.PI*2*cpu/100,base*.050,cpuColor,1);
+  ctx.shadowBlur=Math.max(10,base*.07);ctx.shadowColor=gpuColor;
+  ring(cx,cy,base*.405,Math.PI/2,Math.PI/2+Math.PI*2*gpu/100,base*.038,gpuColor,1);
+  ctx.shadowBlur=Math.max(8,base*.055);ctx.shadowColor=cpuTempColor;
+  ring(cx,cy,base*.30,-Math.PI/2+t*.42,-Math.PI/2+t*.42+Math.PI*2*cpuTemp/110,base*.026,cpuTempColor,.98);
+  ctx.shadowColor=gpuTempColor;
+  ring(cx,cy,base*.265,Math.PI/2-t*.31,Math.PI/2-t*.31+Math.PI*2*gpuTemp/110,base*.023,gpuTempColor,.98);
+  ctx.shadowBlur=0;ctx.globalAlpha=1;
+
+  // Concentric reactor core: clean, circular, readable on a dim LCD.
+  const coreR=base*(.20+liquidHeat*.035)*pulse;
+  const core=ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*1.7);
+  core.addColorStop(0,'#ffffff');core.addColorStop(.10,'#eaffff');core.addColorStop(.20,coreColor);core.addColorStop(.55,'#145966');core.addColorStop(1,'rgba(3,8,10,0)');
+  ctx.globalAlpha=.98;ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,coreR*1.7,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
+  ctx.shadowBlur=Math.max(8,base*.06);ctx.shadowColor=coreColor;ctx.strokeStyle=coreColor;ctx.lineWidth=base*.016;ctx.beginPath();ctx.arc(cx,cy,coreR*.84,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;
+  ctx.fillStyle='#010607';ctx.strokeStyle='#ffffff';ctx.lineWidth=base*.014;ctx.beginPath();ctx.arc(cx,cy,coreR*.40,0,Math.PI*2);ctx.fill();ctx.stroke();
+
+  // Minimal concentric mode: circles and reactor only.
+  requestAnimationFrame(draw)
+}
+draw();
+</script>
+</body></html>
