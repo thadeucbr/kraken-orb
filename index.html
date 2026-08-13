@@ -96,9 +96,11 @@ function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));la
   }
   ctx.restore();
 
-  // Experimental outer pump impeller: replaces tiny inner points, keeps the core untouched.
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.11);ctx.globalAlpha=.48;ctx.fillStyle='#BFE7E7';
-  for(let i=0;i<8;i++){ctx.save();ctx.rotate(i*Math.PI/4);ctx.beginPath();ctx.moveTo(base*.335,-base*.010);ctx.quadraticCurveTo(base*.360,-base*.034,base*.392,-base*.006);ctx.quadraticCurveTo(base*.365,base*.020,base*.335,base*.010);ctx.closePath();ctx.fill();ctx.restore()}
+  // Experimental turbine ring: confined between the two guide rings.
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.10);ctx.globalAlpha=.72;
+  ctx.strokeStyle='#9BD5D8';ctx.lineWidth=Math.max(1.5,base*.008);ctx.beginPath();ctx.arc(0,0,base*.292,0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.arc(0,0,base*.362,0,Math.PI*2);ctx.stroke();
+  ctx.fillStyle='#7FD1D5';ctx.globalAlpha=.48;
+  for(let i=0;i<8;i++){ctx.save();ctx.rotate(i*Math.PI/4);ctx.beginPath();ctx.moveTo(base*.300,-base*.012);ctx.quadraticCurveTo(base*.326,-base*.048,base*.354,-base*.010);ctx.quadraticCurveTo(base*.330,base*.028,base*.300,base*.012);ctx.closePath();ctx.fill();ctx.restore()}
   ctx.restore();ctx.globalAlpha=1;
 
   // Active telemetry rings. The empty tracks were removed for LCD clarity.
