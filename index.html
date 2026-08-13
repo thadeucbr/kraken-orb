@@ -59,7 +59,7 @@ function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));la
   const load=Math.max(cpu,gpu),energy=clamp(load/100),hot=Math.max(cpuTemp,gpuTemp);
   impellerAngle+=(.08+(load/100)*.35)*dt;
   const heat=clamp((hot-35)/55),liquidHeat=clamp((liquid-22)/28);
-  const cpuColor='#B8FF3D';
+  const cpuColor='#D06BFF';
   const gpuColor='#38BFFF';
   const cpuTempRatio=thermalRatio(cpuTemp,45,90);
   const gpuTempRatio=thermalRatio(gpuTemp,35,80);
