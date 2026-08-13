@@ -92,9 +92,9 @@ function draw(){
   ctx.shadowBlur=Math.max(10,base*.07);ctx.shadowColor=gpuColor;
   ring(cx,cy,base*.405,Math.PI/2,Math.PI/2+Math.PI*2*gpu/100,base*.038,gpuColor,1);
   ctx.shadowBlur=Math.max(8,base*.055);ctx.shadowColor=cpuTempColor;
-  ringDashed(cx,cy,base*.30,-Math.PI/2+t*.42,-Math.PI/2+t*.42+Math.PI*2*cpuTempRatio,base*.026,cpuTempColor,[base*.035,base*.020],.98);
+  ringDashed(cx,cy,base*.30,-Math.PI/2+t*.42,-Math.PI/2+t*.42+Math.PI*2*cpuTempRatio,base*.040,cpuTempColor,[base*.045,base*.018],1);
   ctx.shadowColor=gpuTempColor;
-  ring(cx,cy,base*.265,Math.PI/2-t*.31,Math.PI/2-t*.31+Math.PI*2*gpuTempRatio,base*.023,gpuTempColor,.98);
+  ring(cx,cy,base*.265,Math.PI/2-t*.31,Math.PI/2-t*.31+Math.PI*2*gpuTempRatio,base*.040,gpuTempColor,1);
   ctx.shadowBlur=0;ctx.globalAlpha=1;
 
   // Concentric reactor core: clean, circular, readable on a dim LCD.
@@ -109,7 +109,7 @@ function draw(){
     for(let i=0;i<3;i++){const a=i*Math.PI*2/3-Math.PI/2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a-.34)*hazardR,Math.sin(a-.34)*hazardR);ctx.arc(0,0,hazardR,a-.34,a+.34);ctx.closePath();ctx.fill()}
     ctx.fillStyle='#010607';ctx.beginPath();ctx.arc(0,0,hazardR*.25,0,Math.PI*2);ctx.fill();ctx.restore();
   }else{
-    ctx.save();ctx.translate(cx,cy);ctx.rotate(t*(.18+liquidHeat*.28));ctx.globalAlpha=.7;ctx.strokeStyle='#f4ffff';ctx.lineWidth=base*.010;ctx.setLineDash([base*.055,base*.025]);ctx.beginPath();ctx.arc(0,0,coreR*.29,0,Math.PI*1.45);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+    // Normal state: only the clean thermal core remains visible.
   }
 
   // Minimal concentric mode: circles and reactor only.
