@@ -114,6 +114,8 @@ function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));la
   ctx.globalAlpha=.98;ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,coreR*2.5,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
   ctx.shadowBlur=Math.max(10,base*.08);ctx.shadowColor=reactorColor;ctx.strokeStyle=reactorColor;ctx.lineWidth=base*.016;ctx.beginPath();ctx.arc(cx,cy,coreR*.84,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;
   ctx.fillStyle='#010607';ctx.strokeStyle='#ffffff';ctx.lineWidth=base*.014;ctx.beginPath();ctx.arc(cx,cy,coreR*.40,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Experimental pump impeller: six broad curved blades, easier to read than dots.
+  if(thermalState!==3){ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.42);ctx.globalAlpha=.62;ctx.strokeStyle=reactorColor;ctx.fillStyle=reactorColor;ctx.lineWidth=base*.010;for(let i=0;i<6;i++){ctx.save();ctx.rotate(i*Math.PI/3);ctx.beginPath();ctx.moveTo(coreR*.50,-base*.012);ctx.quadraticCurveTo(coreR*.78,-base*.050,coreR*1.02,base*.006);ctx.quadraticCurveTo(coreR*.78,base*.025,coreR*.50,base*.012);ctx.closePath();ctx.fill();ctx.restore()}ctx.restore();ctx.globalAlpha=1;}
   if(thermalState===3){
     ctx.save();ctx.translate(cx,cy);ctx.rotate(-t*.04);ctx.globalAlpha=.96;ctx.fillStyle='#ff3326';const hazardR=coreR*.31;
     for(let i=0;i<3;i++){const a=i*Math.PI*2/3-Math.PI/2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a-.34)*hazardR,Math.sin(a-.34)*hazardR);ctx.arc(0,0,hazardR,a-.34,a+.34);ctx.closePath();ctx.fill()}
