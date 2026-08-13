@@ -71,9 +71,12 @@ function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));la
   const alarm=thermalState===3?1:thermalState===2?.72:thermalState===1?.35:.12;
   const pulse=1+Math.sin(t*(2.2+liquidHeat*2.8))*(.012+liquidHeat*.022+alarm*.018);
 
-  const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,base);
-  bg.addColorStop(0,thermalState===3?'#3a0b0b':thermalState===2?'#32190b':'#182e33'); bg.addColorStop(.28,'#09161b'); bg.addColorStop(.72,'#050b0f'); bg.addColorStop(1,'#020406');
-  ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+  // Blackout background: only the central reactor emits light.
+  ctx.fillStyle='#010307';ctx.fillRect(0,0,w,h);
+  const haze=ctx.createRadialGradient(cx,cy,0,cx,cy,base*.62);
+  const hazeColor=thermalState===3?'rgba(150,12,5,.30)':thermalState===2?'rgba(120,48,6,.20)':'rgba(12,82,92,.18)';
+  haze.addColorStop(0,hazeColor);haze.addColorStop(.38,hazeColor.replace(/\.\d+\)/,'.08)'));haze.addColorStop(1,'rgba(0,0,0,0)');
+  ctx.fillStyle=haze;ctx.fillRect(0,0,w,h);
   // Neutral separators: structure only, not additional telemetry.
   ringDashed(cx,cy,base*.378,0,Math.PI*2,Math.max(1.5,base*.007),'#88A8AD',[base*.024,base*.032],.62);
   ringDashed(cx,cy,base*.282,0,Math.PI*2,Math.max(1.5,base*.006),'#88A8AD',[base*.018,base*.040],.52);
