@@ -48,7 +48,9 @@ function normalizeTemp(value){const n=Number(value);return Number.isFinite(n)?n:
 function thermalRatio(value,normalFloor,critical){return clamp((value-normalFloor)/(critical-normalFloor),0,1)}
 function thermalStateFor(cpuTemp,gpuTemp){if(cpuTemp>=80||gpuTemp>=90)return 3;const ratio=Math.max(thermalRatio(cpuTemp,35,80),thermalRatio(gpuTemp,35,90));return ratio>.72?2:ratio>.38?1:0}
 function color(load,temp){let x=clamp(Math.max(load,temp-25)/100);let hue=lerp(175,8,x);return `hsl(${hue},95%,${lerp(64,55,x)}%)`;}
-function ring(cx,cy,r,start,end,width,col,alpha=1){ctx.save();ctx.lineCap='round';ctx.lineWidth=width;ctx.strokeStyle=col;ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.restore()}
+function ring(cx,cy,r,start,end,width,color,alpha=1){ctx.save();ctx.lineCap='round';ctx.lineWidth=width;ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.restore()}
+function ringDashed(cx,cy,r,start,end,width,color,dash,alpha=1){ctx.save();ctx.lineCap='butt';ctx.lineWidth=width;ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.setLineDash(dash);ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.setLineDash([]);ctx.restore()}
+function temperatureColor(ratio){const hue=125-(clamp(ratio)*125);return `hsl(${hue} 100% 62%)`}
 function draw(){
   t+=.016;
   const cx=w/2,cy=h/2,base=Math.min(w,h)*1.06;
@@ -60,8 +62,8 @@ function draw(){
   const gpuColor='#38BFFF';
   const cpuTempRatio=thermalRatio(cpuTemp,35,80);
   const gpuTempRatio=thermalRatio(gpuTemp,35,90);
-  const cpuTempColor=cpuTempRatio>.72?'#FF7043':'#FFD23F';
-  const gpuTempColor=gpuTempRatio>.72?'#FF4F81':'#FFB13B';
+  const cpuTempColor=temperatureColor(cpuTempRatio);
+  const gpuTempColor=temperatureColor(gpuTempRatio);
   const thermalState=thermalStateFor(cpuTemp,gpuTemp);
   const thermalHue=[185,48,18,2][thermalState];
   const thermalLight=[70,72,66,62][thermalState];
@@ -90,7 +92,7 @@ function draw(){
   ctx.shadowBlur=Math.max(10,base*.07);ctx.shadowColor=gpuColor;
   ring(cx,cy,base*.405,Math.PI/2,Math.PI/2+Math.PI*2*gpu/100,base*.038,gpuColor,1);
   ctx.shadowBlur=Math.max(8,base*.055);ctx.shadowColor=cpuTempColor;
-  ring(cx,cy,base*.30,-Math.PI/2+t*.42,-Math.PI/2+t*.42+Math.PI*2*cpuTempRatio,base*.026,cpuTempColor,.98);
+  ringDashed(cx,cy,base*.30,-Math.PI/2+t*.42,-Math.PI/2+t*.42+Math.PI*2*cpuTempRatio,base*.026,cpuTempColor,[base*.035,base*.020],.98);
   ctx.shadowColor=gpuTempColor;
   ring(cx,cy,base*.265,Math.PI/2-t*.31,Math.PI/2-t*.31+Math.PI*2*gpuTempRatio,base*.023,gpuTempColor,.98);
   ctx.shadowBlur=0;ctx.globalAlpha=1;
@@ -102,10 +104,13 @@ function draw(){
   ctx.globalAlpha=.98;ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,coreR*1.7,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
   ctx.shadowBlur=Math.max(8,base*.06);ctx.shadowColor=coreColor;ctx.strokeStyle=coreColor;ctx.lineWidth=base*.016;ctx.beginPath();ctx.arc(cx,cy,coreR*.84,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;
   ctx.fillStyle='#010607';ctx.strokeStyle='#ffffff';ctx.lineWidth=base*.014;ctx.beginPath();ctx.arc(cx,cy,coreR*.40,0,Math.PI*2);ctx.fill();ctx.stroke();
-  // Radioactive trefoil: subtle at idle, bright when thermals rise.
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(-t*.04);ctx.globalAlpha=.28+alarm*.72;ctx.fillStyle=coreColor;const hazardR=coreR*.31;
-  for(let i=0;i<3;i++){const a=i*Math.PI*2/3-Math.PI/2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a-.34)*hazardR,Math.sin(a-.34)*hazardR);ctx.arc(0,0,hazardR,a-.34,a+.34);ctx.closePath();ctx.fill()}
-  ctx.fillStyle='#010607';ctx.beginPath();ctx.arc(0,0,hazardR*.25,0,Math.PI*2);ctx.fill();ctx.restore();ctx.globalAlpha=1;
+  if(thermalState===3){
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(-t*.04);ctx.globalAlpha=.96;ctx.fillStyle='#ff3326';const hazardR=coreR*.31;
+    for(let i=0;i<3;i++){const a=i*Math.PI*2/3-Math.PI/2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a-.34)*hazardR,Math.sin(a-.34)*hazardR);ctx.arc(0,0,hazardR,a-.34,a+.34);ctx.closePath();ctx.fill()}
+    ctx.fillStyle='#010607';ctx.beginPath();ctx.arc(0,0,hazardR*.25,0,Math.PI*2);ctx.fill();ctx.restore();
+  }else{
+    ctx.save();ctx.translate(cx,cy);ctx.rotate(t*(.18+liquidHeat*.28));ctx.globalAlpha=.7;ctx.strokeStyle='#f4ffff';ctx.lineWidth=base*.010;ctx.setLineDash([base*.055,base*.025]);ctx.beginPath();ctx.arc(0,0,coreR*.29,0,Math.PI*1.45);ctx.stroke();ctx.setLineDash([]);ctx.restore();
+  }
 
   // Minimal concentric mode: circles and reactor only.
   requestAnimationFrame(draw)
