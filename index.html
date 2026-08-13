@@ -1,44 +1,131 @@
 <!doctype html>
-<html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Kraken Thermal Eclipse</title>
-<style>html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#010307}canvas{display:block;width:100vw;height:100vh}#debug{display:none;position:fixed;left:4px;bottom:4px;color:#fff;background:#000c;padding:3px;font:10px monospace;z-index:9}</style></head><body><canvas id="orb"></canvas><div id="debug"></div><script>
-const canvas=document.getElementById('orb'),ctx=canvas.getContext('2d');let w=0,h=0,dpr=1,t=0;
-let metrics={cpuLoad:0,gpuLoad:0,cpuTemp:0,gpuTemp:0,liquidTemp:0};let lastGpu={};
-const debugMode=new URLSearchParams(location.search).has('debug');if(debugMode)document.getElementById('debug').style.display='block';
-function resize(){dpr=Math.min(devicePixelRatio||1,2);w=innerWidth;h=innerHeight;canvas.width=w*dpr;canvas.height=h*dpr;ctx.setTransform(dpr,0,0,dpr,0,0)}addEventListener('resize',resize);resize();
-function clamp(v,a=0,b=100){return Math.max(a,Math.min(b,v))}function load(v){const n=Number(v);return Number.isFinite(n)?clamp(n<=1.01?n*100:n):0}function temp(v){const n=Number(v);return Number.isFinite(n)?n:0}function smooth(a,b,k=.2){return a+(b-a)*k}
-// CAM contract: GPU 2 is the AMD Radeon RX 7900 XTX on this machine.
-window.nzxt=window.nzxt||{};window.nzxt.v1=window.nzxt.v1||{};window.nzxt.v1.onMonitoringDataUpdate=function(data){
- const cpu=data&&data.cpus&&data.cpus[0]||{};const list=data&&Array.isArray(data.gpus)?data.gpus:[];const gpu=list[1]||{};const kraken=data&&data.kraken||{};
- if(Number.isFinite(Number(gpu.load)))lastGpu=gpu;const g=Object.keys(lastGpu).length?lastGpu:gpu;
- metrics.cpuLoad=smooth(metrics.cpuLoad,load(cpu.load));metrics.gpuLoad=smooth(metrics.gpuLoad,load(g.load));metrics.cpuTemp=smooth(metrics.cpuTemp,temp(cpu.temperature));metrics.gpuTemp=smooth(metrics.gpuTemp,temp(g.temperature));metrics.liquidTemp=smooth(metrics.liquidTemp,temp(kraken.liquidTemperature));
- if(debugMode)document.getElementById('debug').textContent='GPU2 raw='+g.load+' interpreted='+metrics.gpuLoad.toFixed(1)+' temp='+g.temperature;
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Kraken Plasma Core</title>
+<style>
+    html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #000; }
+    canvas { display: block; width: 100vw; height: 100vh; }
+    @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600&display=swap');
+</style>
+</head>
+<body>
+<canvas id="core"></canvas>
+<script>
+const canvas = document.getElementById('core'), ctx = canvas.getContext('2d');
+let w = 0, h = 0, cx = 0, cy = 0, time = 0;
+let metrics = { cpuLoad: 0, gpuLoad: 0, cpuTemp: 0, gpuTemp: 0, liquidTemp: 25 };
+let lastGpu = {};
+const particles = [];
+
+function resize() {
+    w = innerWidth; h = innerHeight;
+    canvas.width = w; canvas.height = h;
+    cx = w / 2; cy = h / 2;
+}
+addEventListener('resize', resize); resize();
+
+function smooth(a, b, k = 0.15) { return a + (b - a) * k; }
+function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+// Hook NZXT CAM
+window.nzxt = window.nzxt || {}; window.nzxt.v1 = window.nzxt.v1 || {};
+window.nzxt.v1.onMonitoringDataUpdate = function(data) {
+    const cpu = data?.cpus?.[0] || {};
+    const gpus = data?.gpus || [];
+    const gpu = gpus[1] || {}; // Focando na GPU principal (geralmente index 1 em setups com vídeo integrado)
+    const kraken = data?.kraken || {};
+    
+    if(Number.isFinite(Number(gpu.load))) lastGpu = gpu;
+    const g = Object.keys(lastGpu).length ? lastGpu : gpu;
+    
+    metrics.cpuLoad = smooth(metrics.cpuLoad, clamp(cpu.load || 0, 0, 100));
+    metrics.gpuLoad = smooth(metrics.gpuLoad, clamp(g.load || 0, 0, 100));
+    metrics.cpuTemp = smooth(metrics.cpuTemp, cpu.temperature || 30);
+    metrics.gpuTemp = smooth(metrics.gpuTemp, g.temperature || 30);
+    metrics.liquidTemp = smooth(metrics.liquidTemp, kraken.liquidTemperature || 25);
 };
-function arc(cx,cy,r,start,end,width,color,alpha=1,glow=0){ctx.save();ctx.lineCap='round';ctx.globalAlpha=alpha;ctx.strokeStyle=color;ctx.lineWidth=width;if(glow){ctx.shadowColor=color;ctx.shadowBlur=glow}ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.restore()}
-function draw(){
- t+=.016;const cx=w/2,cy=h/2,s=Math.min(w,h),base=s*1.03;
- const cpu=metrics.cpuLoad,gpu=metrics.gpuLoad,ct=metrics.cpuTemp,gt=metrics.gpuTemp,lt=metrics.liquidTemp;
- const loadMax=clamp(Math.max(cpu,gpu)/100),hot=clamp((Math.max(ct,gt)-35)/55),liquid=clamp((lt-22)/28),overheat=clamp((Math.max(ct,gt)-70)/30);
- const green=`hsl(${155-cpu*.55},100%,${60+cpu*.06}%)`,blue=`hsl(${210+gpu*.55},100%,${62+gpu*.05}%)`,orange=`hsl(${48-hot*38},100%,${61+hot*7}%)`,pink=`hsl(${318+hot*25},100%,${64+hot*6}%)`,coreHue=185-hot*185,core=`hsl(${coreHue},100%,${60+hot*8}%)`;
- const pulse=1+Math.sin(t*(1.8+liquid*2.4))*(.018+liquid*.035),flare=1+Math.sin(t*(3.4+overheat*4))*.035*overheat;
- const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,base);bg.addColorStop(0,overheat>.3?'#35120c':'#0b242b');bg.addColorStop(.38,'#061319');bg.addColorStop(1,'#010307');ctx.fillStyle=bg;ctx.fillRect(0,0,w,h);
- // Thick energy ribbons: four useful metrics, no decorative bars.
- arc(cx,cy,base*.405,-Math.PI/2,Math.PI*1.5,base*.020,'#101b26',.65);
- arc(cx,cy,base*.405,-Math.PI/2,-Math.PI/2+Math.PI*2*gpu/100,base*.070,blue,1,base*.10);
- arc(cx,cy,base*.325,-Math.PI/2,Math.PI*1.5,base*.018,'#10221d',.65);
- arc(cx,cy,base*.325,-Math.PI/2,-Math.PI/2+Math.PI*2*cpu/100,base*.064,green,1,base*.09);
- arc(cx,cy,base*.245,Math.PI/2,Math.PI*2.5,base*.012,'#291d14',.7);
- arc(cx,cy,base*.245,Math.PI/2-t*.25,Math.PI/2-t*.25+Math.PI*2*ct/110,base*.036,orange,1,base*.05);
- arc(cx,cy,base*.185,-Math.PI/2+t*.22,-Math.PI/2+t*.22+Math.PI*2*gt/110,base*.030,pink,1,base*.045);
- // Thermal eclipse corona: this is the main visual identity.
- const coronaR=base*(.22+loadMax*.025+overheat*.08)*pulse*flare;
- const corona=ctx.createRadialGradient(cx,cy,0,cx,cy,coronaR*1.8);corona.addColorStop(0,'#fff');corona.addColorStop(.08,core);corona.addColorStop(.28,core);corona.addColorStop(.62,`hsla(${coreHue},100%,55%,.42)`);corona.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=corona;ctx.beginPath();ctx.arc(cx,cy,coronaR*1.8,0,Math.PI*2);ctx.fill();
- // Large corona fins become hotter and more active as temperature rises.
- ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.045);for(let i=0;i<12;i++){const a=i*Math.PI*2/12,len=base*(.055+overheat*.11+(i%3)*.012),r=coronaR*.88;ctx.save();ctx.rotate(a);ctx.globalAlpha=.38+overheat*.5;ctx.fillStyle=i%2?orange:core;ctx.beginPath();ctx.moveTo(r,-base*.018);ctx.lineTo(r+len,0);ctx.lineTo(r,base*.018);ctx.closePath();ctx.fill();ctx.restore()}ctx.restore();
- // Black eclipse disk with a bright thermal ring.
- arc(cx,cy,coronaR*.74,0,Math.PI*2,base*.020,core,1,base*.06);ctx.fillStyle='#010407';ctx.beginPath();ctx.arc(cx,cy,coronaR*.67,0,Math.PI*2);ctx.fill();
- const innerR=coronaR*(.28+overheat*.08);ctx.fillStyle=core;ctx.shadowColor=core;ctx.shadowBlur=base*.08;ctx.beginPath();ctx.arc(cx,cy,innerR,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
- // A single clean pulse ring replaces the tiny iris details.
- arc(cx,cy,innerR*(1.32+Math.sin(t*2)*.025),0,Math.PI*2,base*.012,'#eaffff',.72,base*.035);
- requestAnimationFrame(draw)
-}draw();
-</script></body></html>
+
+function getThermalColor(temp) {
+    // Azul (30C) -> Roxo (50C) -> Laranja/Vermelho (80C+)
+    const t = clamp((temp - 30) / 50, 0, 1);
+    const r = Math.floor(smooth(0, 255, t * 1.5));
+    const g = Math.floor(smooth(200, 50, t));
+    const b = Math.floor(smooth(255, 0, t * 2));
+    return `${clamp(r,0,255)}, ${clamp(g,0,255)}, ${clamp(b,0,255)}`;
+}
+
+function drawPlasmaBlob(radius, distortion, speed, colorStr, alpha) {
+    ctx.beginPath();
+    for (let a = 0; a <= Math.PI * 2; a += 0.05) {
+        // Ondulação caótica usando múltiplas senoides
+        const wobble = Math.sin(a * 4 + time * speed) * distortion + 
+                       Math.cos(a * 7 - time * (speed * 1.5)) * (distortion * 0.5);
+        const r = radius + wobble;
+        const x = cx + Math.cos(a) * r;
+        const y = cy + Math.sin(a) * r;
+        if (a === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.fillStyle = `rgba(${colorStr}, ${alpha})`;
+    ctx.fill();
+}
+
+function draw() {
+    time += 0.02;
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.fillStyle = 'rgba(0, 0, 3, 0.4)'; // Rastro suave
+    ctx.fillRect(0, 0, w, h);
+
+    const maxLoad = Math.max(metrics.cpuLoad, metrics.gpuLoad);
+    const maxTemp = Math.max(metrics.cpuTemp, metrics.gpuTemp);
+    
+    // Parâmetros do núcleo baseados no hardware
+    const baseRadius = (w * 0.25) + (maxLoad * 0.3); // Expande com o uso
+    const distortion = 5 + (maxLoad * 0.25); // Fica mais caótico sob stress
+    const coreColor = getThermalColor(maxTemp);
+    
+    ctx.globalCompositeOperation = 'lighter';
+
+    // Camadas do Reator
+    drawPlasmaBlob(baseRadius * 1.4, distortion * 1.2, 1.2, coreColor, 0.1); // Aura
+    drawPlasmaBlob(baseRadius * 1.1, distortion * 1.5, 2.0, coreColor, 0.3); // Coroa externa
+    drawPlasmaBlob(baseRadius * 0.8, distortion, 3.0, "255, 255, 255", 0.8); // Núcleo superaquecido branco
+
+    // Sistema de partículas (Fagulhas)
+    if (maxLoad > 30 && Math.random() < (maxLoad / 100)) {
+        particles.push({
+            x: cx, y: cy,
+            vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8,
+            life: 1.0, size: Math.random() * 3 + 1
+        });
+    }
+
+    for (let i = particles.length - 1; i >= 0; i--) {
+        let p = particles[i];
+        p.x += p.vx; p.y += p.vy;
+        p.life -= 0.02;
+        if (p.life <= 0) { particles.splice(i, 1); continue; }
+        
+        ctx.fillStyle = `rgba(${coreColor}, ${p.life})`;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // Textos informativos sutis
+    ctx.globalCompositeOperation = 'source-over';
+    ctx.font = '14px Rajdhani';
+    ctx.textAlign = 'center';
+    ctx.fillStyle = `rgba(${coreColor}, 0.8)`;
+    ctx.fillText(`7950X3D: ${metrics.cpuTemp.toFixed(0)}°C`, cx, cy - baseRadius * 1.5 - 10);
+    ctx.fillText(`7900 XTX: ${metrics.gpuTemp.toFixed(0)}°C`, cx, cy + baseRadius * 1.5 + 20);
+
+    requestAnimationFrame(draw);
+}
+draw();
+</script>
+</body>
+</html>
