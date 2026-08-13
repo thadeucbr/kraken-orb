@@ -51,12 +51,13 @@ function color(load,temp){let x=clamp(Math.max(load,temp-25)/100);let hue=lerp(1
 function ring(cx,cy,r,start,end,width,color,alpha=1){ctx.save();ctx.lineCap='round';ctx.lineWidth=width;ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.restore()}
 function ringDashed(cx,cy,r,start,end,width,color,dash,alpha=1){ctx.save();ctx.lineCap='butt';ctx.lineWidth=width;ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.setLineDash(dash);ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.setLineDash([]);ctx.restore()}
 function temperatureColor(ratio){const x=clamp(ratio);const a=x<.5?[70,255,75]:[255,255,135];const b=x<.5?[255,255,135]:[255,18,18];const t=x<.5?x*2:(x-.5)*2;const r=Math.round(a[0]+(b[0]-a[0])*t),g=Math.round(a[1]+(b[1]-a[1])*t),bl=Math.round(a[2]+(b[2]-a[2])*t);return `rgb(${r},${g},${bl})`}
-let lastFrame=performance.now();
+let lastFrame=performance.now();let impellerAngle=0;
 function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));lastFrame=now;t+=dt;
   const cx=w/2,cy=h/2,base=Math.min(w,h)*1.06;
   const cpu=clamp(metrics.cpuLoad),gpu=clamp(metrics.gpuLoad);
   const cpuTemp=clamp(metrics.cpuTemp,20,110),gpuTemp=clamp(metrics.gpuTemp,20,110),liquid=clamp(metrics.liquidTemp,15,80);
   const load=Math.max(cpu,gpu),energy=clamp(load/100),hot=Math.max(cpuTemp,gpuTemp);
+  impellerAngle+=(.08+(load/100)*.35)*dt;
   const heat=clamp((hot-35)/55),liquidHeat=clamp((liquid-22)/28);
   const cpuColor='#B8FF3D';
   const gpuColor='#38BFFF';
@@ -97,7 +98,7 @@ function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));la
   ctx.restore();
 
   // Outer impeller V2: 12 restrained blades, preserving the existing guides.
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*(.08+(load/100)*.35));ctx.globalAlpha=.42;ctx.fillStyle='#BFE7E7';
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(impellerAngle);ctx.globalAlpha=.42;ctx.fillStyle='#BFE7E7';
   for(let i=0;i<12;i++){ctx.save();ctx.rotate(i*Math.PI/6+.28);ctx.beginPath();ctx.moveTo(base*.280,-base*.007);ctx.quadraticCurveTo(base*.315,-base*.045,base*.362,-base*.010);ctx.quadraticCurveTo(base*.330,base*.023,base*.280,base*.007);ctx.closePath();ctx.fill();ctx.restore()}
   ctx.restore();ctx.globalAlpha=1;
 
