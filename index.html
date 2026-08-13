@@ -98,7 +98,7 @@ function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));la
 
   // Outer impeller V2: 12 restrained blades, preserving the existing guides.
   ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.095);ctx.globalAlpha=.42;ctx.fillStyle='#BFE7E7';
-  for(let i=0;i<12;i++){ctx.save();ctx.rotate(i*Math.PI/6+.16);ctx.beginPath();ctx.moveTo(base*.278,-base*.015);ctx.quadraticCurveTo(base*.315,-base*.065,base*.365,-base*.018);ctx.quadraticCurveTo(base*.330,base*.038,base*.278,base*.015);ctx.closePath();ctx.fill();ctx.restore()}
+  for(let i=0;i<12;i++){ctx.save();ctx.rotate(i*Math.PI/6+.24);ctx.beginPath();ctx.moveTo(base*.278,-base*.009);ctx.quadraticCurveTo(base*.315,-base*.050,base*.360,-base*.012);ctx.quadraticCurveTo(base*.330,base*.026,base*.278,base*.009);ctx.closePath();ctx.fill();ctx.restore()}
   ctx.restore();ctx.globalAlpha=1;
 
   // Active telemetry rings. The empty tracks were removed for LCD clarity.
