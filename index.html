@@ -79,9 +79,9 @@ function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));la
   haze.addColorStop(0,hazeColor);haze.addColorStop(.38,hazeColor.replace(/\.\d+\)/,'.08)'));haze.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=haze;ctx.fillRect(0,0,w,h);
   // Neutral separators: structure only, not additional telemetry.
-  ringDashed(cx,cy,base*.378,0,Math.PI*2,Math.max(1.5,base*.007),'#88A8AD',[base*.024,base*.032],.62);
-  ringDashed(cx,cy,base*.282,0,Math.PI*2,Math.max(1.5,base*.006),'#88A8AD',[base*.018,base*.040],.52);
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.018);ctx.strokeStyle='#D5ECEC';ctx.globalAlpha=.72;ctx.lineWidth=Math.max(1.5,base*.008);
+  ringDashed(cx,cy,base*.378,0,Math.PI*2,Math.max(2,base*.009),'#9BD5D8',[base*.030,base*.026],.82);
+  ringDashed(cx,cy,base*.282,0,Math.PI*2,Math.max(2,base*.008),'#9BD5D8',[base*.024,base*.034],.72);
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.018);ctx.strokeStyle='#E8FFFF';ctx.globalAlpha=.86;ctx.lineWidth=Math.max(2,base*.010);
   for(let i=0;i<16;i++){const a=i*Math.PI*2/16,r=base*.337,len=i%4===0?base*.022:base*.012;ctx.beginPath();ctx.moveTo(Math.cos(a)*r,Math.sin(a)*r);ctx.lineTo(Math.cos(a)*(r+len),Math.sin(a)*(r+len));ctx.stroke()}
   ctx.restore();ctx.globalAlpha=1;
 
