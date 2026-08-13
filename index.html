@@ -97,7 +97,7 @@ function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));la
   ctx.restore();
 
   // Outer impeller V2: 12 restrained blades, preserving the existing guides.
-  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*.18);ctx.globalAlpha=.42;ctx.fillStyle='#BFE7E7';
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(t*(.08+(load/100)*.35));ctx.globalAlpha=.42;ctx.fillStyle='#BFE7E7';
   for(let i=0;i<12;i++){ctx.save();ctx.rotate(i*Math.PI/6+.28);ctx.beginPath();ctx.moveTo(base*.280,-base*.007);ctx.quadraticCurveTo(base*.315,-base*.045,base*.362,-base*.010);ctx.quadraticCurveTo(base*.330,base*.023,base*.280,base*.007);ctx.closePath();ctx.fill();ctx.restore()}
   ctx.restore();ctx.globalAlpha=1;
 
