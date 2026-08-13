@@ -45,6 +45,8 @@ function clamp(v,a=0,b=100){return Math.max(a,Math.min(b,v))}
 function lerp(a,b,n){return a+(b-a)*n}
 function normalizeLoad(value){const n=Number(value);if(!Number.isFinite(n))return 0;return clamp(n<=1.01?n*100:n)}
 function normalizeTemp(value){const n=Number(value);return Number.isFinite(n)?n:0}
+function thermalRatio(value,normalFloor,critical){return clamp((value-normalFloor)/(critical-normalFloor),0,1)}
+function thermalStateFor(cpuTemp,gpuTemp){if(cpuTemp>=80||gpuTemp>=90)return 3;const ratio=Math.max(thermalRatio(cpuTemp,35,80),thermalRatio(gpuTemp,35,90));return ratio>.72?2:ratio>.38?1:0}
 function color(load,temp){let x=clamp(Math.max(load,temp-25)/100);let hue=lerp(175,8,x);return `hsl(${hue},95%,${lerp(64,55,x)}%)`;}
 function ring(cx,cy,r,start,end,width,col,alpha=1){ctx.save();ctx.lineCap='round';ctx.lineWidth=width;ctx.strokeStyle=col;ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.restore()}
 function draw(){
@@ -54,14 +56,15 @@ function draw(){
   const cpuTemp=clamp(metrics.cpuTemp,20,110),gpuTemp=clamp(metrics.gpuTemp,20,110),liquid=clamp(metrics.liquidTemp,15,80);
   const load=Math.max(cpu,gpu),hot=Math.max(cpuTemp,gpuTemp);
   const heat=clamp((hot-35)/55),liquidHeat=clamp((liquid-22)/28);
-  const cpuColor=`hsl(${lerp(155,82,cpu/100)},92%,${lerp(62,54,cpu/100)}%)`;
-  const gpuColor=`hsl(${lerp(205,278,gpu/100)},92%,${lerp(66,58,gpu/100)}%)`;
-  const cpuTempColor=`hsl(${lerp(48,8,heat)},96%,${lerp(66,54,heat)}%)`;
-  const gpuTempColor=`hsl(${lerp(310,345,clamp((gpuTemp-35)/55))},88%,62%)`;
-  const hotTemp=Math.max(cpuTemp,gpuTemp);
-  const thermalState=hotTemp<55?0:hotTemp<68?1:hotTemp<80?2:3;
-  const thermalHue=[185,48,20,2][thermalState];
-  const thermalLight=[65,68,62,58][thermalState];
+  const cpuColor='#B8FF3D';
+  const gpuColor='#38BFFF';
+  const cpuTempRatio=thermalRatio(cpuTemp,35,80);
+  const gpuTempRatio=thermalRatio(gpuTemp,35,90);
+  const cpuTempColor=cpuTempRatio>.72?'#FF7043':'#FFD23F';
+  const gpuTempColor=gpuTempRatio>.72?'#FF4F81':'#FFB13B';
+  const thermalState=thermalStateFor(cpuTemp,gpuTemp);
+  const thermalHue=[185,48,18,2][thermalState];
+  const thermalLight=[70,72,66,62][thermalState];
   const coreColor=`hsl(${thermalHue} 100% ${thermalLight}%)`;
   const alarm=thermalState===3?1:thermalState===2?.72:thermalState===1?.35:.12;
   const pulse=1+Math.sin(t*(2.2+liquidHeat*2.8))*(.012+liquidHeat*.022+alarm*.018);
@@ -87,9 +90,9 @@ function draw(){
   ctx.shadowBlur=Math.max(10,base*.07);ctx.shadowColor=gpuColor;
   ring(cx,cy,base*.405,Math.PI/2,Math.PI/2+Math.PI*2*gpu/100,base*.038,gpuColor,1);
   ctx.shadowBlur=Math.max(8,base*.055);ctx.shadowColor=cpuTempColor;
-  ring(cx,cy,base*.30,-Math.PI/2+t*.42,-Math.PI/2+t*.42+Math.PI*2*cpuTemp/110,base*.026,cpuTempColor,.98);
+  ring(cx,cy,base*.30,-Math.PI/2+t*.42,-Math.PI/2+t*.42+Math.PI*2*cpuTempRatio,base*.026,cpuTempColor,.98);
   ctx.shadowColor=gpuTempColor;
-  ring(cx,cy,base*.265,Math.PI/2-t*.31,Math.PI/2-t*.31+Math.PI*2*gpuTemp/110,base*.023,gpuTempColor,.98);
+  ring(cx,cy,base*.265,Math.PI/2-t*.31,Math.PI/2-t*.31+Math.PI*2*gpuTempRatio,base*.023,gpuTempColor,.98);
   ctx.shadowBlur=0;ctx.globalAlpha=1;
 
   // Concentric reactor core: clean, circular, readable on a dim LCD.
