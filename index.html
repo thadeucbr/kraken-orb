@@ -58,11 +58,16 @@ function draw(){
   const gpuColor=`hsl(${lerp(205,278,gpu/100)},92%,${lerp(66,58,gpu/100)}%)`;
   const cpuTempColor=`hsl(${lerp(48,8,heat)},96%,${lerp(66,54,heat)}%)`;
   const gpuTempColor=`hsl(${lerp(310,345,clamp((gpuTemp-35)/55))},88%,62%)`;
-  const coreColor=color(liquidHeat*100,liquid);
-  const pulse=1+Math.sin(t*(2.2+liquidHeat*2.8))*(.012+liquidHeat*.022);
+  const hotTemp=Math.max(cpuTemp,gpuTemp);
+  const thermalState=hotTemp<55?0:hotTemp<68?1:hotTemp<80?2:3;
+  const thermalHue=[185,48,20,2][thermalState];
+  const thermalLight=[65,68,62,58][thermalState];
+  const coreColor=`hsl(${thermalHue} 100% ${thermalLight}%)`;
+  const alarm=thermalState===3?1:thermalState===2?.72:thermalState===1?.35:.12;
+  const pulse=1+Math.sin(t*(2.2+liquidHeat*2.8))*(.012+liquidHeat*.022+alarm*.018);
 
   const bg=ctx.createRadialGradient(cx,cy,0,cx,cy,base);
-  bg.addColorStop(0,'#182e33'); bg.addColorStop(.28,'#09161b'); bg.addColorStop(.72,'#050b0f'); bg.addColorStop(1,'#020406');
+  bg.addColorStop(0,thermalState===3?'#3a0b0b':thermalState===2?'#32190b':'#182e33'); bg.addColorStop(.28,'#09161b'); bg.addColorStop(.72,'#050b0f'); bg.addColorStop(1,'#020406');
   ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
 
   // Mechanical radial traces.
@@ -94,6 +99,10 @@ function draw(){
   ctx.globalAlpha=.98;ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,coreR*1.7,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
   ctx.shadowBlur=Math.max(8,base*.06);ctx.shadowColor=coreColor;ctx.strokeStyle=coreColor;ctx.lineWidth=base*.016;ctx.beginPath();ctx.arc(cx,cy,coreR*.84,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;
   ctx.fillStyle='#010607';ctx.strokeStyle='#ffffff';ctx.lineWidth=base*.014;ctx.beginPath();ctx.arc(cx,cy,coreR*.40,0,Math.PI*2);ctx.fill();ctx.stroke();
+  // Radioactive trefoil: subtle at idle, bright when thermals rise.
+  ctx.save();ctx.translate(cx,cy);ctx.rotate(-t*.04);ctx.globalAlpha=.28+alarm*.72;ctx.fillStyle=coreColor;const hazardR=coreR*.31;
+  for(let i=0;i<3;i++){const a=i*Math.PI*2/3-Math.PI/2;ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(Math.cos(a-.34)*hazardR,Math.sin(a-.34)*hazardR);ctx.arc(0,0,hazardR,a-.34,a+.34);ctx.closePath();ctx.fill()}
+  ctx.fillStyle='#010607';ctx.beginPath();ctx.arc(0,0,hazardR*.25,0,Math.PI*2);ctx.fill();ctx.restore();ctx.globalAlpha=1;
 
   // Minimal concentric mode: circles and reactor only.
   requestAnimationFrame(draw)
