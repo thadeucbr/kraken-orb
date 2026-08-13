@@ -88,9 +88,9 @@ function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));la
   // Mechanical radial traces.
   ctx.save(); ctx.translate(cx,cy); ctx.rotate(t*.08);
   for(let i=0;i<24;i++){
-    const a=i*Math.PI*2/24, inner=base*.355, len=base*(.045+(i%4)*.014);
-    ctx.strokeStyle='#6F9297'; ctx.globalAlpha=i%4===0?.34:.20;
-    ctx.lineWidth=Math.max(1.5,base*.006); ctx.beginPath();
+    const a=i*Math.PI*2/24, inner=base*.355, len=base*(.060+(i%4)*.020);
+    ctx.strokeStyle='#BFE7E7'; ctx.globalAlpha=i%4===0?.58:.36;
+    ctx.lineWidth=Math.max(2,base*.009); ctx.beginPath();
     ctx.moveTo(Math.cos(a)*inner,Math.sin(a)*inner);
     ctx.lineTo(Math.cos(a)*(inner+len),Math.sin(a)*(inner+len)); ctx.stroke();
   }
