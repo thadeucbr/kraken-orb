@@ -56,30 +56,46 @@ function ring(cx,cy,r,start,end,width,color,alpha=1){ctx.save();ctx.lineCap='rou
 function ringDashed(cx,cy,r,start,end,width,color,dash,alpha=1){ctx.save();ctx.lineCap='butt';ctx.lineWidth=width;ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.setLineDash(dash);ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.setLineDash([]);ctx.restore()}
 function temperatureColor(ratio){const x=clamp(ratio);if(x>=.62)return '#FF2418';const a=[70,255,75],b=[255,255,135],t=x/.62;const r=Math.round(a[0]+(b[0]-a[0])*t),g=Math.round(a[1]+(b[1]-a[1])*t),bl=Math.round(a[2]+(b[2]-a[2])*t);return `rgb(${r},${g},${bl})`}
 let lastFrame=performance.now();let impellerAngle=0;let peakIntensity=0;let peakMode=false;
+const rayProfiles=[
+  {angleOffset:.06,phase:.03,speed:1.15,length:.86,bend:-.025},
+  {angleOffset:-.09,phase:.24,speed:.92,length:.72,bend:.018},
+  {angleOffset:.11,phase:.41,speed:1.28,length:.80,bend:-.014},
+  {angleOffset:-.05,phase:.58,speed:1.02,length:.68,bend:.024},
+  {angleOffset:.08,phase:.76,speed:1.20,length:.78,bend:-.020},
+  {angleOffset:-.12,phase:.91,speed:.86,length:.70,bend:.016}
+];
 function drawPeakRays(cx,cy,coreR,intensity,tt){
   if(intensity<=0.01)return;
   ctx.save();ctx.translate(cx,cy);
   const clipR=coreR*.80;
   ctx.beginPath();ctx.arc(0,0,clipR,0,Math.PI*2);ctx.clip();
-  const rayCount=6;
+  const rayCount=rayProfiles.length;
   const innerR=coreR*.40;
   const maxOuterR=coreR*.74;
   for(let i=0;i<rayCount;i++){
-    const angle=i*Math.PI*2/rayCount+tt*(i%2?.14:-.11);
-    const flicker=.88+Math.sin(tt*9+i*1.8)*.12;
-    const outerR=lerp(coreR*.55,maxOuterR,intensity)*flicker;
+    const p=rayProfiles[i];
+    const cycle=1.65/p.speed;
+    const local=((tt+p.phase*cycle)%cycle)/cycle;
+    if(local>.58)continue;
+    const life=local/.58;
+    const growth=life<.32?life/.32:1;
+    const fade=life<.42?1:1-(life-.42)/.58;
+    const pulse=clamp(growth,0,1)*clamp(fade,0,1)*intensity;
+    if(pulse<=0.01)continue;
+    const angle=i*Math.PI*2/rayCount+p.angleOffset;
+    const outerR=lerp(coreR*.40,coreR*p.length*(maxOuterR/(coreR*.74)),growth*intensity);
     const midR=(innerR+outerR)*.55;
-    const bend=Math.sin(tt*11+i*2.2)*coreR*.03;
+    const bend=coreR*p.bend;
     const x1=Math.cos(angle)*innerR,y1=Math.sin(angle)*innerR;
     const xm=Math.cos(angle)*midR-Math.sin(angle)*bend,ym=Math.sin(angle)*midR+Math.cos(angle)*bend;
     const x2=Math.cos(angle)*outerR,y2=Math.sin(angle)*outerR;
     ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(xm,ym);ctx.lineTo(x2,y2);
     ctx.lineCap='round';
     ctx.shadowColor='#8DEBFF';ctx.shadowBlur=coreR*.14;
-    ctx.lineWidth=coreR*.065*intensity;ctx.strokeStyle=`rgba(80,240,255,${.52*intensity})`;
+    ctx.lineWidth=coreR*.065*pulse;ctx.strokeStyle=`rgba(80,240,255,${.52*pulse})`;
     ctx.stroke();
     ctx.shadowBlur=coreR*.035;
-    ctx.lineWidth=coreR*.028*intensity;ctx.strokeStyle=`rgba(245,255,255,${.95*intensity})`;
+    ctx.lineWidth=coreR*.028*pulse;ctx.strokeStyle=`rgba(245,255,255,${.95*pulse})`;
     ctx.stroke();
   }
   ctx.restore();
