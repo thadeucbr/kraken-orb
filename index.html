@@ -6,12 +6,13 @@
 <title>Kraken Orb</title>
 <style>
   html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#05070b;color:#d9e6ea;font-family:Segoe UI,Arial,sans-serif}
-  canvas{display:block;width:100vw;height:100vh}
+  canvas{display:block;width:100vw;height:100vh;background:linear-gradient(rgba(18,16,16,0) 50%,rgba(0,0,0,.16) 50%),linear-gradient(90deg,rgba(255,0,0,.025),rgba(0,255,0,.012),rgba(0,0,255,.025));background-size:100% 4px,6px 100%}
+  #scanlines{position:fixed;inset:0;pointer-events:none;background:repeating-linear-gradient(to bottom,rgba(0,0,0,0) 0,rgba(0,0,0,0) 2px,rgba(0,0,0,.045) 3px,rgba(0,0,0,.045) 4px);box-shadow:inset 0 0 18vw rgba(0,0,0,.32)}
   #debug{position:fixed;left:10px;bottom:8px;color:#71858d;font:10px monospace;opacity:.7;display:none}
 </style>
 </head>
 <body>
-<canvas id="orb"></canvas><div id="debug">KRAKEN ORB // CAM WEB INTEGRATION SPIKE</div>
+<canvas id="orb"></canvas><div id="scanlines"></div><div id="debug">KRAKEN ORB // CAM WEB INTEGRATION SPIKE</div>
 <script>
 const canvas=document.getElementById('orb'),ctx=canvas.getContext('2d');
 let w=0,h=0,dpr=1,t=0;
@@ -54,6 +55,15 @@ function smooth(current,target,speed,dt){const amount=1-Math.exp(-speed*dt);retu
 function color(load,temp){let x=clamp(Math.max(load,temp-25)/100);let hue=lerp(175,8,x);return `hsl(${hue},95%,${lerp(64,55,x)}%)`;}
 function ring(cx,cy,r,start,end,width,color,alpha=1){ctx.save();ctx.lineCap='round';ctx.lineWidth=width;ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.restore()}
 function ringDashed(cx,cy,r,start,end,width,color,dash,alpha=1){ctx.save();ctx.lineCap='butt';ctx.lineWidth=width;ctx.strokeStyle=color;ctx.globalAlpha=alpha;ctx.setLineDash(dash);ctx.beginPath();ctx.arc(cx,cy,r,start,end);ctx.stroke();ctx.setLineDash([]);ctx.restore()}
+function ringSegmented(cx,cy,r,start,pct,width,color,segments=48,gap=.34){const step=Math.PI*2/segments,lit=Math.round(segments*clamp(pct));ctx.save();ctx.lineCap='butt';ctx.lineWidth=width;ctx.strokeStyle=color;ctx.setLineDash([step*r*(1-gap),step*r*gap]);ctx.globalAlpha=.14;ctx.beginPath();ctx.arc(cx,cy,r,start,start+Math.PI*2);ctx.stroke();ctx.globalAlpha=1;ctx.shadowColor=color;ctx.shadowBlur=width*1.7;ctx.beginPath();ctx.arc(cx,cy,r,start,start+step*lit);ctx.stroke();ctx.restore()}
+function ringFlow(cx,cy,r,pct,color,phase){if(pct<=.02)return;const a=-Math.PI/2+Math.PI*2*clamp(pct)*((t*1.5+phase)%1),x=cx+Math.cos(a)*r,y=cy+Math.sin(a)*r;ctx.save();ctx.fillStyle='#fff';ctx.shadowColor=color;ctx.shadowBlur=r*.08;ctx.beginPath();ctx.arc(x,y,Math.max(1.5,r*.018),0,Math.PI*2);ctx.fill();ctx.restore()}
+function compactReadout(cx,cy,r,label,value,color,angle){const x=cx+Math.cos(angle)*r,y=cy+Math.sin(angle)*r;ctx.save();ctx.textAlign='center';ctx.textBaseline='middle';ctx.font='bold '+Math.max(9,r*.13)+'px Consolas,monospace';ctx.fillStyle=color;ctx.shadowColor=color;ctx.shadowBlur=4;ctx.fillText(label+':'+String(Math.round(value)).padStart(2,'0'),x,y);ctx.restore()}
+function liquidWave(cx,cy,r,ratio,color){ctx.save();ctx.strokeStyle=color;ctx.lineWidth=Math.max(1.5,r*.035);ctx.shadowColor=color;ctx.shadowBlur=r*.07;ctx.beginPath();for(let i=0;i<=80;i++){const a=i/80*Math.PI*2,wave=Math.sin(a*8+t*4)*(r*.008+r*.025*ratio),rr=r+wave,x=cx+Math.cos(a)*rr,y=cy+Math.sin(a)*rr;i?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke();ctx.restore()}
+function drawParticles(cx,cy,r,energy,dt){ctx.save();ctx.globalCompositeOperation='lighter';for(const p of particles){p.angle+=p.speed*(.25+energy)*dt;const rr=r+p.offset,twinkle=.55+.45*Math.sin(t*3+p.phase),x=cx+Math.cos(p.angle)*rr,y=cy+Math.sin(p.angle)*rr;ctx.globalAlpha=twinkle*(.35+.65*energy);ctx.fillStyle=p.color;ctx.shadowColor=p.color;ctx.shadowBlur=r*.06;ctx.beginPath();ctx.arc(x,y,p.size*(.7+energy),0,Math.PI*2);ctx.fill()}ctx.restore()}
+function drawBrackets(cx,cy,r,phase){ctx.save();ctx.translate(cx,cy);ctx.rotate(phase);ctx.strokeStyle='#9fdde0';ctx.globalAlpha=.62;ctx.lineWidth=Math.max(1.5,r*.018);for(let i=0;i<4;i++){ctx.save();ctx.rotate(i*Math.PI/2);ctx.beginPath();ctx.moveTo(r*.96,-r*.12);ctx.lineTo(r*1.08,-r*.12);ctx.lineTo(r*1.08,r*.12);ctx.stroke();ctx.restore()}ctx.restore()}
+function drawBootRadar(cx,cy,r){const a=t*1.8,grad=ctx.createConicGradient(a,cx,cy);grad.addColorStop(0,'rgba(90,240,255,.35)');grad.addColorStop(.08,'rgba(90,240,255,.12)');grad.addColorStop(.22,'rgba(90,240,255,0)');grad.addColorStop(1,'rgba(90,240,255,0)');ctx.fillStyle=grad;ctx.beginPath();ctx.moveTo(cx,cy);ctx.arc(cx,cy,r,a,a+Math.PI*2);ctx.closePath();ctx.fill();ringDashed(cx,cy,r*.42,0,Math.PI*2,Math.max(1,r*.012),'#55dce5',[r*.04,r*.06],.6);ringDashed(cx,cy,r*.7,0,Math.PI*2,Math.max(1,r*.009),'#55dce5',[r*.02,r*.1],.45);ctx.save();ctx.strokeStyle='#c9ffff';ctx.lineWidth=Math.max(1,r*.012);ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(cx+Math.cos(a)*r,cy+Math.sin(a)*r);ctx.stroke();ctx.restore()}
+function drawGlitchCore(cx,cy,r,color,alpha){ctx.save();ctx.globalCompositeOperation='lighter';ctx.globalAlpha=alpha;ctx.fillStyle=color;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.fill();ctx.restore()}
+const particles=Array.from({length:12},(_,i)=>({angle:i*Math.PI*2/12,offset:(i%5-2)*4,speed:i%2?-1:1,size:1.2+(i%3)*.6,phase:i*.73,color:i%2?'#2DE2E6':'#D06BFF'}));
 function temperatureColor(ratio){const x=clamp(ratio);if(x>=.62)return '#FF2418';const a=[70,255,75],b=[255,255,135],t=x/.62;const r=Math.round(a[0]+(b[0]-a[0])*t),g=Math.round(a[1]+(b[1]-a[1])*t),bl=Math.round(a[2]+(b[2]-a[2])*t);return `rgb(${r},${g},${bl})`}
 let lastFrame=performance.now();let impellerAngle=0;let peakIntensity=0;let peakMode=false;
 const rayProfiles=[
@@ -137,6 +147,9 @@ function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));la
   const hazeColor=thermalState===3?'rgba(150,12,5,.30)':thermalState===2?'rgba(120,48,6,.20)':'rgba(12,82,92,.18)';
   haze.addColorStop(0,hazeColor);haze.addColorStop(.38,hazeColor.replace(/\.\d+\)/,'.08)'));haze.addColorStop(1,'rgba(0,0,0,0)');
   ctx.fillStyle=haze;ctx.fillRect(0,0,w,h);
+  // Boot radar remains visible until CAM sends the first real payload.
+  if(!camConnected) drawBootRadar(cx,cy,base*.40);
+
   // Neutral separators: structure only, not additional telemetry.
   ringDashed(cx,cy,base*.378,0,Math.PI*2,Math.max(2,base*.009),'#9BD5D8',[base*.030,base*.026],.82);
   ringDashed(cx,cy,base*.282,0,Math.PI*2,Math.max(2,base*.008),'#9BD5D8',[base*.024,base*.034],.72);
@@ -160,21 +173,29 @@ function draw(now){const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));la
   for(let i=0;i<12;i++){ctx.save();ctx.rotate(i*Math.PI/6+.28);ctx.beginPath();ctx.moveTo(base*.280,-base*.007);ctx.quadraticCurveTo(base*.315,-base*.045,base*.362,-base*.010);ctx.quadraticCurveTo(base*.330,base*.023,base*.280,base*.007);ctx.closePath();ctx.fill();ctx.restore()}
   ctx.restore();ctx.globalAlpha=1;
 
-  // Active telemetry rings. The empty tracks were removed for LCD clarity.
-  ctx.shadowBlur=Math.max(12,base*.085);ctx.shadowColor=cpuColor;
-  ring(cx,cy,base*.35,-Math.PI/2,-Math.PI/2+Math.PI*2*cpu/100,base*.050,cpuColor,1);
-  ctx.shadowBlur=Math.max(10,base*.07);ctx.shadowColor=gpuColor;
-  ring(cx,cy,base*.405,Math.PI/2,Math.PI/2+Math.PI*2*gpu/100,base*.038,gpuColor,1);
-  ctx.shadowBlur=Math.max(8,base*.055);ctx.shadowColor=cpuTempColor;
-  ring(cx,cy,base*.30,Math.PI,Math.PI+Math.PI*2*cpuTempRatio,base*.040,cpuTempColor,1);
-  ctx.shadowColor=gpuTempColor;
-  ring(cx,cy,base*.265,0,Math.PI*2*gpuTempRatio,base*.040,gpuTempColor,1);
-  ctx.shadowBlur=0;ctx.globalAlpha=1;
+  // HUD telemetry: segmented rails preserve readability at small LCD size.
+  ringSegmented(cx,cy,base*.35,-Math.PI/2,cpu,base*.050,cpuColor,44,.34);
+  ringSegmented(cx,cy,base*.405,Math.PI/2,gpu,base*.038,gpuColor,48,.34);
+  ringSegmented(cx,cy,base*.30,Math.PI,cpuTempRatio,base*.040,cpuTempColor,36,.38);
+  ringSegmented(cx,cy,base*.265,0,gpuTempRatio,base*.040,gpuTempColor,36,.38);
+  ringFlow(cx,cy,base*.35,cpu,cpuColor,.1);ringFlow(cx,cy,base*.405,gpu,gpuColor,.55);
+  compactReadout(cx,cy,base*.46,'C',cpu,cpuColor,-Math.PI*.72);
+  compactReadout(cx,cy,base*.49,'G',gpu,gpuColor,Math.PI*.22);
+  compactReadout(cx,cy,base*.35,'L',liquid,cpuColor,Math.PI*.72);
+
+  // Liquid telemetry and orbital HUD details.
+  liquidWave(cx,cy,base*.235,liquidHeat,gpuColor);
+  drawParticles(cx,cy,base*.205,energy,dt);
+  drawBrackets(cx,cy,base*.455,-t*.035);
 
   // Concentric reactor core: clean, circular, readable on a dim LCD.
   const coreR=base*(.10+energy*.14+liquidHeat*.02)*pulse;
   const core=ctx.createRadialGradient(cx,cy,0,cx,cy,coreR*2.5);
   core.addColorStop(0,'#ffffff');core.addColorStop(.08,reactorColor);core.addColorStop(.25,reactorColor);core.addColorStop(.55,'rgba(141,235,255,.30)');core.addColorStop(1,'rgba(0,0,0,0)');
+  if(thermalState===3 && Math.sin(t*17)>.18){
+    drawGlitchCore(cx+base*.012,cy-base*.008,coreR*1.03,'#ff281d',.24);
+    drawGlitchCore(cx-base*.015,cy+base*.010,coreR*.96,'#00ffff',.22);
+  }
   ctx.globalAlpha=.98;ctx.fillStyle=core;ctx.beginPath();ctx.arc(cx,cy,coreR*2.5,0,Math.PI*2);ctx.fill();ctx.globalAlpha=1;
   ctx.shadowBlur=Math.max(10,base*.08);ctx.shadowColor=reactorColor;ctx.strokeStyle=reactorColor;ctx.lineWidth=base*.016;ctx.beginPath();ctx.arc(cx,cy,coreR*.84,0,Math.PI*2);ctx.stroke();ctx.shadowBlur=0;
   // Peak overload rays: contained inside the blue core, behind the black disc.
