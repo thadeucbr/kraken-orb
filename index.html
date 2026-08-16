@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Kraken Orb - Perfect Fusion V15</title>
+<title>Kraken Orb - Perfect Fusion V18</title>
 <style>
   @import url('https://fonts.googleapis.com/css2?family=Rajdhani:wght@600;700;800&display=swap');
   
@@ -24,10 +24,19 @@
     background-size: 100% 4px;
     opacity: 0.2;
   }
+
+  #test-throttle {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100px; height: 100px;
+      z-index: 10;
+      cursor: pointer;
+  }
 </style>
 </head>
 <body>
 <div class="crt-overlay"></div>
+<div id="test-throttle" title="Clique para testar Telas de Throttling"></div>
 <canvas id="orb"></canvas>
 
 <script>
@@ -36,10 +45,17 @@ let w=0,h=0,dpr=1,t=0;
 let metrics={cpuLoad:0,gpuLoad:0,cpuTemp:45,gpuTemp:45};
 let display=Object.assign({},metrics);
 let displayInit=false;
+let camConnected=false; 
 
 let lastFrame=performance.now();
 let peakIntensity=0;
 let peakMode=false;
+
+let testThrottleState = 0; 
+
+document.getElementById('test-throttle').addEventListener('click', () => {
+    testThrottleState = (testThrottleState + 1) % 4;
+});
 
 function parseMetric(value, fallback) {
   if (value === undefined || value === null) return fallback;
@@ -55,6 +71,8 @@ function normalizeLoad(v) {
 window.nzxt=window.nzxt||{};
 window.nzxt.v1=window.nzxt.v1||{};
 window.nzxt.v1.onMonitoringDataUpdate=function(data){
+  if(testThrottleState > 0) return; 
+
   const cpu=data?.cpus?.[0] || {};
   const gpuList=data?.gpus || [];
   const gpu = gpuList.length > 1 ? gpuList[1] : (gpuList[0] || {});
@@ -64,6 +82,7 @@ window.nzxt.v1.onMonitoringDataUpdate=function(data){
   metrics.cpuTemp = parseMetric(cpu.temperature, metrics.cpuTemp);
   metrics.gpuTemp = parseMetric(gpu.temperature, metrics.gpuTemp);
   
+  camConnected = true; 
   if(!displayInit){display=Object.assign({},metrics);displayInit=true}
 };
 
@@ -118,40 +137,25 @@ function drawHemisphereRing(cx, cy, r, percentage, width, color, isLeft) {
     ctx.restore();
 }
 
-// CORES CUSTOMIZADAS POR HARDWARE (Azul -> Verde -> Amarelo -> Vermelho)
 function getHardwareColorRGB(temp, type) {
     let stops = [];
     if (type === 'cpu') { 
-        // Ryzen 9 7950X3D em clima quente (Presidente Venceslau SP)
-        stops = [
-            [45, [0, 229, 255]],   // Azul: Até 45C (Idle/Frio)
-            [62, [0, 255, 100]],   // Verde: 45C a 62C (Uso normal)
-            [78, [255, 215, 0]],   // Amarelo: 62C a 78C (Load de Jogo pesado)
-            [85, [255, 30, 0]]     // Vermelho: 85C+ (Próximo ao TJMax 89C)
-        ];
+        stops = [[45, [0, 229, 255]], [62, [0, 255, 100]], [78, [255, 215, 0]], [85, [255, 30, 0]]];
     } else { 
-        // Radeon RX 7900 XTX
-        stops = [
-            [42, [0, 229, 255]],   // Azul: Até 42C (Zero RPM Mode/Idle)
-            [58, [0, 255, 100]],   // Verde: 42C a 58C (Uso moderado)
-            [72, [255, 215, 0]],   // Amarelo: 58C a 72C (Load alto)
-            [82, [255, 30, 0]]     // Vermelho: Acima de 82C Edge
-        ];
+        stops = [[42, [0, 229, 255]], [58, [0, 255, 100]], [72, [255, 215, 0]], [82, [255, 30, 0]]];
     }
-    
     let c = stops[stops.length-1][1]; 
     if (temp <= stops[0][0]) c = stops[0][1];
     else {
         for (let i = 0; i < stops.length - 1; i++) {
             if (temp >= stops[i][0] && temp <= stops[i+1][0]) {
                 const range = stops[i+1][0] - stops[i][0];
-                const t = (temp - stops[i][0]) / range;
-                const c1 = stops[i][1];
-                const c2 = stops[i+1][1];
+                const pt = (temp - stops[i][0]) / range;
+                const c1 = stops[i][1]; const c2 = stops[i+1][1];
                 c = [
-                    Math.round(c1[0] + (c2[0] - c1[0]) * t),
-                    Math.round(c1[1] + (c2[1] - c1[1]) * t),
-                    Math.round(c1[2] + (c2[2] - c1[2]) * t)
+                    Math.round(c1[0] + (c2[0] - c1[0]) * pt),
+                    Math.round(c1[1] + (c2[1] - c1[1]) * pt),
+                    Math.round(c1[2] + (c2[2] - c1[2]) * pt)
                 ];
                 break;
             }
@@ -160,24 +164,16 @@ function getHardwareColorRGB(temp, type) {
     return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
 }
 
-// Cor global do reator
 function getReactorColorRGB(severity) {
-   let c1, c2, t;
+   let c1, c2, pt;
    if (severity < 0.4) {
-       c1 = [0, 229, 255]; c2 = [0, 229, 255]; 
-       t = 0;
+       c1 = [0, 229, 255]; c2 = [0, 229, 255]; pt = 0;
    } else if(severity < 0.7) {
-       c1 = [0, 229, 255]; c2 = [255, 120, 0];
-       t = (severity - 0.4) / 0.3;
+       c1 = [0, 229, 255]; c2 = [255, 120, 0]; pt = (severity - 0.4) / 0.3;
    } else {
-       c1 = [255, 120, 0]; c2 = [255, 30, 0]; 
-       t = (severity - 0.7) / 0.3;
+       c1 = [255, 120, 0]; c2 = [255, 30, 0]; pt = (severity - 0.7) / 0.3;
    }
-   return {
-     r: Math.round(lerp(c1[0], c2[0], t)),
-     g: Math.round(lerp(c1[1], c2[1], t)),
-     b: Math.round(lerp(c1[2], c2[2], t))
-   };
+   return { r: Math.round(lerp(c1[0], c2[0], pt)), g: Math.round(lerp(c1[1], c2[1], pt)), b: Math.round(lerp(c1[2], c2[2], pt)) };
 }
 
 const rayProfiles=[
@@ -234,6 +230,72 @@ function drawPeakRays(cx, cy, maxR, intensity, tt, colorObj) {
     ctx.restore();
 }
 
+function drawThrottleScreen(throttleType, cx, cy, base, time) {
+    const flash = Math.abs(Math.sin(time * 10)); 
+    const bgRed = Math.round(50 + 100 * flash);
+    ctx.fillStyle = `rgb(${bgRed}, 0, 0)`;
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate(time * 0.5);
+    ctx.fillStyle = 'rgba(0,0,0,0.4)';
+    for(let i = 0; i < 20; i++) {
+        ctx.beginPath();
+        ctx.moveTo(0, -base);
+        ctx.lineTo(base * 0.2, -base);
+        ctx.lineTo(0, base);
+        ctx.lineTo(-base * 0.2, base);
+        ctx.fill();
+        ctx.rotate((Math.PI * 2) / 10);
+    }
+    ctx.restore();
+
+    const glitchOffset = (Math.random() > 0.8) ? (Math.random() - 0.5) * base * 0.05 : 0;
+    
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    
+    let title = "WARNING";
+    let subtitle = "";
+    let tempText = "";
+
+    if (throttleType === 3) {
+        title = "SYS FAILURE";
+        subtitle = "CRITICAL DUAL THROTTLE";
+        tempText = `C:${Math.round(display.cpuTemp)}° G:${Math.round(display.gpuTemp)}°`;
+    } else if (throttleType === 1) {
+        title = "CPU THROTTLE";
+        subtitle = "THERMAL LIMIT EXCEEDED";
+        tempText = `CPU ${Math.round(display.cpuTemp)}°C`;
+    } else if (throttleType === 2) {
+        title = "GPU THROTTLE";
+        subtitle = "THERMAL LIMIT EXCEEDED";
+        tempText = `GPU ${Math.round(display.gpuTemp)}°C`;
+    }
+
+    ctx.font = `800 ${base * 0.16}px Rajdhani`;
+    ctx.fillStyle = '#00FFFF';
+    ctx.fillText(title, cx - glitchOffset, cy - base * 0.1);
+
+    ctx.fillStyle = '#FF00FF';
+    ctx.fillText(title, cx + glitchOffset, cy - base * 0.1);
+
+    ctx.fillStyle = flash > 0.5 ? '#FFFFFF' : '#FFD700';
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#000000';
+    ctx.fillText(title, cx, cy - base * 0.1);
+    
+    ctx.shadowBlur = 0;
+    ctx.font = `700 ${base * 0.06}px Rajdhani`;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.fillText(subtitle, cx, cy + base * 0.08);
+
+    ctx.font = `800 ${base * 0.12}px Rajdhani`;
+    ctx.fillStyle = `rgba(255, 255, 255, ${0.4 + 0.6 * flash})`;
+    ctx.fillText(tempText, cx, cy + base * 0.25);
+}
+
 function draw(now){
   const dt=Math.min(.05,Math.max(.001,(now-lastFrame)/1000));
   lastFrame=now; t+=dt;
@@ -241,17 +303,37 @@ function draw(now){
   const cx=w/2, cy=h/2;
   const base=Math.min(w,h)*0.99;
   
+  if(testThrottleState === 1) { metrics.cpuTemp = 90; metrics.gpuTemp = 75; }
+  else if(testThrottleState === 2) { metrics.cpuTemp = 75; metrics.gpuTemp = 92; }
+  else if(testThrottleState === 3) { metrics.cpuTemp = 91; metrics.gpuTemp = 95; }
+  else if(testThrottleState === 0 && !camConnected) { 
+      metrics.cpuTemp = 45; metrics.gpuTemp = 45; 
+  }
+
   display.cpuLoad=smooth(display.cpuLoad,metrics.cpuLoad,1.2,dt);
   display.gpuLoad=smooth(display.gpuLoad,metrics.gpuLoad,1.2,dt);
   display.cpuTemp=smooth(display.cpuTemp,metrics.cpuTemp,0.8,dt);
   display.gpuTemp=smooth(display.gpuTemp,metrics.gpuTemp,0.8,dt);
   
+  const isCpuThrottling = display.cpuTemp >= 89.0;
+  const isGpuThrottling = display.gpuTemp >= 90.0;
+  
+  let currentThrottleState = 0;
+  if(isCpuThrottling && isGpuThrottling) currentThrottleState = 3;
+  else if(isCpuThrottling) currentThrottleState = 1;
+  else if(isGpuThrottling) currentThrottleState = 2;
+
+  if(currentThrottleState > 0) {
+      drawThrottleScreen(currentThrottleState, cx, cy, base, t);
+      requestAnimationFrame(draw);
+      return; 
+  }
+  
   const cpu=clamp(display.cpuLoad), gpu=clamp(display.gpuLoad);
   const load=Math.max(cpu,gpu), energy=clamp(load/100);
   
-  // Custom Ranges: 7950X3D (40->89) | 7900 XTX (35->85)
-  const cpuTempRatio = clamp((display.cpuTemp - 40) / 49);
-  const gpuTempRatio = clamp((display.gpuTemp - 35) / 50);
+  const cpuTempRatio=clamp((display.cpuTemp - 40) / 49);
+  const gpuTempRatio=clamp((display.gpuTemp - 35) / 50);
   
   const severity = Math.max(energy, cpuTempRatio, gpuTempRatio);
   const rColorObj = getReactorColorRGB(severity);
@@ -268,16 +350,13 @@ function draw(now){
   const cpuTempColor = getHardwareColorRGB(display.cpuTemp, 'cpu');
   const gpuTempColor = getHardwareColorRGB(display.gpuTemp, 'gpu');
 
-  // FUNDO PRETO ABSOLUTO
   ctx.fillStyle='#000000'; ctx.fillRect(0,0,w,h);
   
-  // === AURA EM DUAS FASES ===
   const voidR = base * 0.05; 
   const innerSolidR = base * 0.22; 
   const outerFadeR = base * 0.50;  
   
   const auraGrad = ctx.createRadialGradient(cx, cy, voidR, cx, cy, outerFadeR);
-  
   const alphaStrong = 0.6 + energy * 0.4; 
   const alphaMid = 0.3 + energy * 0.3; 
   
@@ -288,7 +367,6 @@ function draw(now){
   ctx.fillStyle = auraGrad;
   ctx.fillRect(0, 0, w, h);
 
-  // === CORE CENTRAL CRESCENTE ===
   const coreBaseR = base * 0.06;
   const pulse = 1 + Math.sin(t * (3.0 + energy * 5.0)) * (0.02 + energy * 0.05);
   const coreR = coreBaseR + (energy * base * 0.08) * pulse; 
@@ -305,7 +383,6 @@ function draw(now){
   ctx.beginPath(); ctx.arc(cx,cy,coreR*2.5,0,Math.PI*2); ctx.fill();
   ctx.globalAlpha = 1;
   
-  // Aro colorido em volta do Core
   ctx.shadowBlur=Math.max(10,base*.08);
   ctx.shadowColor=reactorColor;
   ctx.strokeStyle=reactorColor;
@@ -313,14 +390,13 @@ function draw(now){
   ctx.beginPath(); ctx.arc(cx,cy,coreR*.84,0,Math.PI*2); ctx.stroke();
   ctx.shadowBlur=0;
 
-  // === RAIOS ===
-  drawPeakRays(cx, cy, innerSolidR, peakIntensity, t, rColorObj);
+  if (Math.random() > 0.6) {
+      drawPeakRays(cx, cy, innerSolidR, peakIntensity, t, rColorObj);
+  }
 
-  // === PONTO PRETO CENTRAL ===
   ctx.fillStyle='#010607';
   ctx.beginPath(); ctx.arc(cx,cy,coreR*.40,0,Math.PI*2); ctx.fill();
 
-  // === ANÉIS DE TELEMETRIA ===
   const ringW = base * 0.045; 
   const rTemp = base * 0.38; 
   const rLoad = base * 0.46;
@@ -336,37 +412,38 @@ function draw(now){
   drawHemisphereRing(cx, cy, rLoad, gpu, ringW, gpuColor, false);
   drawHemisphereRing(cx, cy, rTemp, gpuTempRatio * 100, ringW, gpuTempColor, false);
 
-  // === TIPOGRAFIA HUD CENTRALIZADA (Sem o 'C') ===
+  // === TIPOGRAFIA HUD TOTALMENTE FORA DAS BARRAS ===
   ctx.textBaseline = 'alphabetic'; 
   ctx.shadowBlur = 15; 
   ctx.shadowColor = '#000000';
 
-  const blockX = base * 0.36; // Posição centralizada para cada bloco de texto
-  const yLabel = cy + base * 0.30; 
-  const yTemp = cy + base * 0.44; 
-
-  const tempSize = base * 0.18; 
+  const edgeX = base * 0.46; // Desloca para os extremos do quadrado do LCD
+  const tempSize = base * 0.17; 
   const labelSize = base * 0.07; 
+  
+  // Ajuste do Y para assentar o texto perfeitamente nos cantos
+  const yLabel = cy + base * 0.35; 
+  const yTemp = cy + base * 0.48; 
 
-  // CPU (Esquerda)
-  ctx.textAlign = 'center'; 
+  // CPU (Canto Inferior Esquerdo Absoluto)
+  ctx.textAlign = 'left'; // O texto nasce na borda esquerda e cresce para a direita
   ctx.font = `700 ${labelSize}px Rajdhani`;
   ctx.fillStyle = cpuColor; 
-  ctx.fillText(`CPU`, cx - blockX, yLabel);
+  ctx.fillText(`CPU`, cx - edgeX, yLabel);
 
   ctx.font = `800 ${tempSize}px Rajdhani`;
   ctx.fillStyle = cpuTempColor;
-  ctx.fillText(`${Math.round(display.cpuTemp)}°`, cx - blockX, yTemp);
+  ctx.fillText(`${Math.round(display.cpuTemp)}°`, cx - edgeX, yTemp);
   
-  // GPU (Direita)
-  ctx.textAlign = 'center';
+  // GPU (Canto Inferior Direito Absoluto)
+  ctx.textAlign = 'right'; // O texto nasce na borda direita e cresce para a esquerda
   ctx.font = `700 ${labelSize}px Rajdhani`;
   ctx.fillStyle = gpuColor;
-  ctx.fillText(`GPU`, cx + blockX, yLabel);
+  ctx.fillText(`GPU`, cx + edgeX, yLabel);
 
   ctx.font = `800 ${tempSize}px Rajdhani`;
   ctx.fillStyle = gpuTempColor;
-  ctx.fillText(`${Math.round(display.gpuTemp)}°`, cx + blockX, yTemp);
+  ctx.fillText(`${Math.round(display.gpuTemp)}°`, cx + edgeX, yTemp);
 
   ctx.shadowBlur = 0;
   requestAnimationFrame(draw);
